@@ -1,0 +1,18 @@
+# Maven
+target/
+backend/target/
+
+# VS Code
+.vscode/
+
+# IntelliJ IDEA
+.idea/
+
+# Logs
+*.log
+
+# Windows
+Thumbs.db
+
+# macOS
+.DS_Store
