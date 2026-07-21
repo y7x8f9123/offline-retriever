@@ -1,0 +1,5 @@
+What is artificial intelligence?
+Who invented Java?
+What is machine learning?
+What is deep learning?
+What is multimodal retrieval?
