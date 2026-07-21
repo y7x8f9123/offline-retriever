@@ -1,0 +1,2 @@
+This is a test document for the offline retrieval system.
+The parser has successfully read this text file.

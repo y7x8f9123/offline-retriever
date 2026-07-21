@@ -26,6 +26,7 @@
       <artifactId>tika-parsers-standard-package</artifactId>
       <version>3.2.3</version>
     </dependency>
+
   </dependencies>
 
   <build>
