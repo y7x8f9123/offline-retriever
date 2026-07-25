@@ -1,0 +1,38 @@
+package com.offlineretriever.vector;
+
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+
+public class SimilarityCalculatorTest {
+
+    @Test
+    public void testIdenticalVectorsHaveSimilarityOne() {
+        float[] vectorA = {1.0f, 2.0f, 3.0f};
+        float[] vectorB = {1.0f, 2.0f, 3.0f};
+
+        double similarity =
+                SimilarityCalculator.cosineSimilarity(vectorA, vectorB);
+
+        assertEquals(1.0, similarity, 0.0001);
+    }
+
+    @Test
+    public void testOrthogonalVectorsHaveSimilarityZero() {
+        float[] vectorA = {1.0f, 0.0f};
+        float[] vectorB = {0.0f, 1.0f};
+
+        double similarity =
+                SimilarityCalculator.cosineSimilarity(vectorA, vectorB);
+
+        assertEquals(0.0, similarity, 0.0001);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testDifferentDimensionsThrowException() {
+        float[] vectorA = {1.0f, 2.0f};
+        float[] vectorB = {1.0f, 2.0f, 3.0f};
+
+        SimilarityCalculator.cosineSimilarity(vectorA, vectorB);
+    }
+}
