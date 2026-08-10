@@ -3,6 +3,7 @@ package com.offlineretriever.vector;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.PriorityQueue;
 
 public class Retriever {
 
@@ -14,27 +15,56 @@ public class Retriever {
 
     /**
      * Search the vector store using cosine similarity.
+     *
+     * Uses a fixed-size min-heap to avoid sorting
+     * all records and reduce temporary object creation.
      */
     public List<SearchResult> search(float[] queryVector, int topK) {
 
-        List<SearchResult> results = new ArrayList<>();
+        if (topK <= 0) {
+            return new ArrayList<>();
+        }
+
+        PriorityQueue<SearchResult> topResults =
+                new PriorityQueue<>(
+                        Comparator.comparingDouble(
+                                SearchResult::getSimilarityScore
+                        )
+                );
 
         for (VectorRecord record : vectorStore.getAllRecords()) {
 
-            double similarity = SimilarityCalculator.cosineSimilarity(
-                    queryVector,
-                    record.getEmbedding());
+            double similarity =
+                    SimilarityCalculator.cosineSimilarity(
+                            queryVector,
+                            record.getEmbedding()
+                    );
 
-            results.add(new SearchResult(record, similarity));
+            if (topResults.size() < topK) {
+
+                topResults.offer(
+                        new SearchResult(record, similarity)
+                );
+
+            } else if (similarity >
+                    topResults.peek().getSimilarityScore()) {
+
+                topResults.poll();
+
+                topResults.offer(
+                        new SearchResult(record, similarity)
+                );
+            }
         }
+
+        List<SearchResult> results =
+                new ArrayList<>(topResults);
 
         results.sort(
-                Comparator.comparingDouble(SearchResult::getSimilarityScore)
-                        .reversed());
-
-        if (topK < results.size()) {
-            return results.subList(0, topK);
-        }
+                Comparator.comparingDouble(
+                        SearchResult::getSimilarityScore
+                ).reversed()
+        );
 
         return results;
     }

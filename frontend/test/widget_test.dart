@@ -1,30 +1,149 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:frontend/main.dart';
+import 'package:frontend/pages/search_page.dart';
+import 'package:frontend/pages/results_page.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('Search Page Tests', () {
+    testWidgets(
+      'Search page displays main search interface',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: SearchPage(),
+          ),
+        );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+        expect(find.text('Search Local Files'), findsOneWidget);
+        expect(find.text('Search query'), findsOneWidget);
+        expect(find.text('Search'), findsWidgets);
+        expect(find.byType(TextField), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+        expect(
+          find.text(
+            'Search is performed locally. Your files and queries are not uploaded to the internet.',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    testWidgets(
+      'Empty search query displays validation message',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: SearchPage(),
+          ),
+        );
+
+        final searchButton = find.widgetWithText(
+          ElevatedButton,
+          'Search',
+        );
+
+        await tester.tap(searchButton);
+        await tester.pump();
+
+        expect(
+          find.text('Please enter a search query.'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Valid query navigates to results page',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: SearchPage(),
+          ),
+        );
+
+        await tester.enterText(
+          find.byType(TextField),
+          'offline retrieval',
+        );
+
+        final searchButton = find.widgetWithText(
+          ElevatedButton,
+          'Search',
+        );
+
+        await tester.tap(searchButton);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Search Results'), findsOneWidget);
+
+        expect(
+          find.text('Query: "offline retrieval"'),
+          findsOneWidget,
+        );
+
+        expect(
+          find.text('3 matching files found'),
+          findsOneWidget,
+        );
+      },
+    );
+  });
+
+  group('Results Page Tests', () {
+    testWidgets(
+      'Results page displays mock retrieval results',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: ResultsPage(
+              query: 'offline retrieval',
+            ),
+          ),
+        );
+
+        expect(
+          find.text('Query: "offline retrieval"'),
+          findsOneWidget,
+        );
+
+        expect(find.text('project_report.pdf'), findsOneWidget);
+        expect(find.text('meeting_notes.docx'), findsOneWidget);
+        expect(find.text('sample_image.png'), findsOneWidget);
+
+        expect(
+          find.text('3 matching files found'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Open button displays feedback message',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: ResultsPage(
+              query: 'offline retrieval',
+            ),
+          ),
+        );
+
+        final openButtons = find.widgetWithText(
+          ElevatedButton,
+          'Open',
+        );
+
+        expect(openButtons, findsNWidgets(3));
+
+        await tester.tap(openButtons.first);
+        await tester.pump();
+
+        expect(
+          find.text('Opening project_report.pdf...'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }

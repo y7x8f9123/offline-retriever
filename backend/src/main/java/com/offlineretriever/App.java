@@ -30,8 +30,12 @@ public class App {
             String content = parser.parse(file.toString());
 
             System.out.println("==============================");
-            System.out.println(metadata);
-            System.out.println(content);
+            System.out.println(
+                "File: " + metadata.getFileName()
+                + " | Type: " + metadata.getFileType()
+                + " | Size: " + metadata.getFileSize()
+            );
+            System.out.println("Content parsed successfully.");
         }
     }
 }

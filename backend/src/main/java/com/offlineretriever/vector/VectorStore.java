@@ -1,14 +1,17 @@
 package com.offlineretriever.vector;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class VectorStore {
 
     private final List<VectorRecord> records;
+    private final List<VectorRecord> readOnlyRecords;
 
     public VectorStore() {
         records = new ArrayList<>();
+        readOnlyRecords = Collections.unmodifiableList(records);
     }
 
     public void add(VectorRecord record) {
@@ -16,7 +19,7 @@ public class VectorStore {
     }
 
     public List<VectorRecord> getAllRecords() {
-        return records;
+        return readOnlyRecords;
     }
 
     public int size() {
