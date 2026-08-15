@@ -2,7 +2,10 @@ package com.offlineretriever.embedding;
 
 import org.junit.Test;
 
-import static org.junit.Assert.assertArrayEquals;
+import java.util.Arrays;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 
 public class TextEmbeddingEngineTest {
@@ -14,11 +17,7 @@ public class TextEmbeddingEngineTest {
 
         float[] result = engine.embed("Hello World");
 
-        assertArrayEquals(
-                new float[]{1.0f, 2.0f, 3.0f},
-                result,
-                0.001f
-        );
+        assertEquals(256, result.length);
     }
 
     @Test
@@ -29,6 +28,27 @@ public class TextEmbeddingEngineTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> engine.embed("")
+        );
+    }
+
+    @Test
+    public void shouldSupportChineseText() {
+
+        TextEmbeddingEngine engine = new TextEmbeddingEngine();
+
+        float[] first = engine.embed(
+                "这是一个离线检索系统"
+        );
+
+        float[] second = engine.embed(
+                "中文文档解析功能"
+        );
+
+        assertEquals(256, first.length);
+        assertEquals(256, second.length);
+
+        assertFalse(
+                Arrays.equals(first, second)
         );
     }
 }

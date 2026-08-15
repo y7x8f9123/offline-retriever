@@ -1,8 +1,10 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:frontend/pages/search_page.dart';
 import 'package:frontend/pages/results_page.dart';
+import 'package:frontend/pages/search_page.dart';
+import 'package:frontend/services/retrieval_service.dart';
 
 void main() {
   group('Search Page Tests', () {
@@ -11,7 +13,9 @@ void main() {
       (WidgetTester tester) async {
         await tester.pumpWidget(
           const MaterialApp(
-            home: SearchPage(),
+            home: SearchPage(
+              files: <PlatformFile>[],
+            ),
           ),
         );
 
@@ -22,8 +26,14 @@ void main() {
 
         expect(
           find.text(
-            'Search is performed locally. Your files and queries are not uploaded to the internet.',
+            'Search is performed locally. '
+            'Your files and queries are not uploaded to the internet.',
           ),
+          findsOneWidget,
+        );
+
+        expect(
+          find.text('0 local file(s) available for search'),
           findsOneWidget,
         );
       },
@@ -34,7 +44,9 @@ void main() {
       (WidgetTester tester) async {
         await tester.pumpWidget(
           const MaterialApp(
-            home: SearchPage(),
+            home: SearchPage(
+              files: <PlatformFile>[],
+            ),
           ),
         );
 
@@ -54,11 +66,13 @@ void main() {
     );
 
     testWidgets(
-      'Valid query navigates to results page',
+      'Valid query with no imported files displays validation message',
       (WidgetTester tester) async {
         await tester.pumpWidget(
           const MaterialApp(
-            home: SearchPage(),
+            home: SearchPage(
+              files: <PlatformFile>[],
+            ),
           ),
         );
 
@@ -73,17 +87,13 @@ void main() {
         );
 
         await tester.tap(searchButton);
-        await tester.pumpAndSettle();
-
-        expect(find.text('Search Results'), findsOneWidget);
+        await tester.pump();
 
         expect(
-          find.text('Query: "offline retrieval"'),
-          findsOneWidget,
-        );
-
-        expect(
-          find.text('3 matching files found'),
+          find.text(
+            'No local files have been imported. '
+            'Please import TXT files first.',
+          ),
           findsOneWidget,
         );
       },
@@ -92,55 +102,96 @@ void main() {
 
   group('Results Page Tests', () {
     testWidgets(
-      'Results page displays mock retrieval results',
+      'Results page displays retrieval results',
       (WidgetTester tester) async {
+        const results = <RetrievalResult>[
+          RetrievalResult(
+            fileName: 'test_a.txt',
+            filePath: r'C:\test\test_a.txt',
+            score: 0.5669,
+          ),
+          RetrievalResult(
+            fileName: 'test_b.txt',
+            filePath: r'C:\test\test_b.txt',
+            score: 0.0,
+          ),
+        ];
+
         await tester.pumpWidget(
           const MaterialApp(
             home: ResultsPage(
-              query: 'offline retrieval',
+              query: 'software engineering',
+              results: results,
             ),
           ),
         );
 
         expect(
-          find.text('Query: "offline retrieval"'),
+          find.text('Query: "software engineering"'),
           findsOneWidget,
         );
 
-        expect(find.text('project_report.pdf'), findsOneWidget);
-        expect(find.text('meeting_notes.docx'), findsOneWidget);
-        expect(find.text('sample_image.png'), findsOneWidget);
+        expect(
+          find.text('2 matching file(s) found'),
+          findsOneWidget,
+        );
 
         expect(
-          find.text('3 matching files found'),
+          find.text('test_a.txt'),
+          findsOneWidget,
+        );
+
+        expect(
+          find.text('test_b.txt'),
+          findsOneWidget,
+        );
+
+        expect(
+          find.textContaining('Similarity: 0.5669'),
+          findsOneWidget,
+        );
+
+        expect(
+          find.textContaining('Similarity: 0.0000'),
+          findsOneWidget,
+        );
+
+        expect(
+          find.text('#1'),
+          findsOneWidget,
+        );
+
+        expect(
+          find.text('#2'),
           findsOneWidget,
         );
       },
     );
 
     testWidgets(
-      'Open button displays feedback message',
+      'Results page displays empty state when no results are returned',
       (WidgetTester tester) async {
         await tester.pumpWidget(
           const MaterialApp(
             home: ResultsPage(
-              query: 'offline retrieval',
+              query: 'unknown query',
+              results: <RetrievalResult>[],
             ),
           ),
         );
 
-        final openButtons = find.widgetWithText(
-          ElevatedButton,
-          'Open',
+        expect(
+          find.text('Query: "unknown query"'),
+          findsOneWidget,
         );
 
-        expect(openButtons, findsNWidgets(3));
-
-        await tester.tap(openButtons.first);
-        await tester.pump();
+        expect(
+          find.text('0 matching file(s) found'),
+          findsOneWidget,
+        );
 
         expect(
-          find.text('Opening project_report.pdf...'),
+          find.text('No matching files were found.'),
           findsOneWidget,
         );
       },

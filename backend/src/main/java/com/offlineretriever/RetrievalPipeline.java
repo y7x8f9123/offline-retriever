@@ -1,7 +1,8 @@
 package com.offlineretriever;
 
 import com.offlineretriever.embedding.TextEmbeddingEngine;
-import com.offlineretriever.parser.TextParser;
+import com.offlineretriever.factory.ParserFactory;
+import com.offlineretriever.parser.Parser;
 import com.offlineretriever.vector.Retriever;
 import com.offlineretriever.vector.SearchResult;
 import com.offlineretriever.vector.VectorRecord;
@@ -13,30 +14,47 @@ import java.util.List;
 
 public class RetrievalPipeline {
 
-    private final TextParser parser;
     private final TextEmbeddingEngine embeddingEngine;
     private final VectorStore vectorStore;
     private final Retriever retriever;
 
     public RetrievalPipeline() {
-        parser = new TextParser();
         embeddingEngine = new TextEmbeddingEngine();
         vectorStore = new VectorStore();
         retriever = new Retriever(vectorStore);
     }
 
     /**
-     * Index a text file into the vector store.
+     * Index a supported local file into the vector store.
      */
     public void indexFile(File file) throws IOException {
 
+        Parser parser = ParserFactory.getParser(file.getName());
+
+        if (parser == null) {
+            throw new IllegalArgumentException(
+                    "Unsupported file type: " + file.getName()
+            );
+        }
+
         String content = parser.parse(file.getAbsolutePath());
+
+        if (content == null || content.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "No readable content found in file: " + file.getName()
+            );
+        }
+
+        if (content.startsWith("Error reading document:")) {
+            throw new IOException(content);
+        }
 
         float[] embedding = embeddingEngine.embed(content);
 
         VectorRecord record = new VectorRecord(
                 file.getName(),
                 file.getName(),
+                file.getAbsolutePath(),
                 embedding
         );
 

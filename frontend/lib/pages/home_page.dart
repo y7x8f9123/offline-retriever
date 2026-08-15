@@ -1,10 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'library_page.dart';
 import 'search_page.dart';
 import 'settings_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     required this.highContrast,
@@ -17,6 +18,21 @@ class HomePage extends StatelessWidget {
   final double fontScale;
   final ValueChanged<bool> onHighContrastChanged;
   final ValueChanged<double> onFontScaleChanged;
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final List<PlatformFile> _importedFiles = [];
+
+  void _updateImportedFiles(List<PlatformFile> files) {
+    setState(() {
+      _importedFiles
+        ..clear()
+        ..addAll(files);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +59,9 @@ class HomePage extends StatelessWidget {
                       size: 80,
                     ),
                   ),
+
                   const SizedBox(height: 20),
+
                   Text(
                     'Local Semantic Search',
                     textAlign: TextAlign.center,
@@ -52,14 +70,16 @@ class HomePage extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                             ),
                   ),
+
                   const SizedBox(height: 10),
+
                   const Text(
                     'Search your local documents completely offline.',
                     textAlign: TextAlign.center,
                   ),
+
                   const SizedBox(height: 40),
 
-                  // First keyboard focus target.
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(1),
                     child: Semantics(
@@ -74,13 +94,18 @@ class HomePage extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const LibraryPage(),
+                                builder: (context) => LibraryPage(
+                                  initialFiles: _importedFiles,
+                                  onFilesChanged: _updateImportedFiles,
+                                ),
                               ),
                             );
                           },
                           icon: const Icon(Icons.folder),
                           label: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
                             child: Text('File Library'),
                           ),
                         ),
@@ -90,7 +115,6 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 15),
 
-                  // Second keyboard focus target.
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(2),
                     child: Semantics(
@@ -104,13 +128,17 @@ class HomePage extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const SearchPage(),
+                                builder: (context) => SearchPage(
+                                  files: _importedFiles,
+                                ),
                               ),
                             );
                           },
                           icon: const Icon(Icons.search),
                           label: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
                             child: Text('Search'),
                           ),
                         ),
@@ -120,7 +148,6 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 15),
 
-                  // Third keyboard focus target.
                   FocusTraversalOrder(
                     order: const NumericFocusOrder(3),
                     child: Semantics(
@@ -136,18 +163,21 @@ class HomePage extends StatelessWidget {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => SettingsPage(
-                                  highContrast: highContrast,
-                                  fontScale: fontScale,
+                                  highContrast: widget.highContrast,
+                                  fontScale: widget.fontScale,
                                   onHighContrastChanged:
-                                      onHighContrastChanged,
-                                  onFontScaleChanged: onFontScaleChanged,
+                                      widget.onHighContrastChanged,
+                                  onFontScaleChanged:
+                                      widget.onFontScaleChanged,
                                 ),
                               ),
                             );
                           },
                           icon: const Icon(Icons.settings),
                           label: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
                             child: Text('Settings'),
                           ),
                         ),
@@ -157,13 +187,16 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 28),
 
-                  Semantics(
-                    label:
-                        'Keyboard instructions. Press Tab or Shift plus Tab to move between controls. Press Enter or Space to activate a selected control.',
-                    child: const Text(
-                      'Keyboard: Tab / Shift+Tab to navigate, Enter or Space to select.',
-                      textAlign: TextAlign.center,
-                    ),
+                  Text(
+                    '${_importedFiles.length} local file(s) imported',
+                    textAlign: TextAlign.center,
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  const Text(
+                    'Keyboard: Tab / Shift+Tab to navigate, Enter or Space to select.',
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
