@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../services/retrieval_service.dart';
@@ -7,41 +6,35 @@ import 'results_page.dart';
 class SearchPage extends StatefulWidget {
   const SearchPage({
     super.key,
-    required this.files,
   });
 
-  final List<PlatformFile> files;
-
   @override
-  State<SearchPage> createState() => _SearchPageState();
+  State<SearchPage> createState() =>
+      _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> {
-  final TextEditingController _searchController = TextEditingController();
+class _SearchPageState
+    extends State<SearchPage> {
+  final TextEditingController
+      _searchController =
+      TextEditingController();
 
   bool _isSearching = false;
 
   Future<void> _performSearch() async {
-    final query = _searchController.text.trim();
+    final query =
+        _searchController.text.trim();
 
     if (query.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a search query.'),
-        ),
-      );
-      return;
-    }
-
-    if (widget.files.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
           content: Text(
-            'No local files have been imported. '
-            'Please import TXT files first.',
+            'Please enter a search query.',
           ),
         ),
       );
+
       return;
     }
 
@@ -50,9 +43,9 @@ class _SearchPageState extends State<SearchPage> {
     });
 
     try {
-      final results = await RetrievalService.search(
+      final results =
+          await RetrievalService.search(
         query: query,
-        files: widget.files,
         topK: 5,
       );
 
@@ -63,7 +56,8 @@ class _SearchPageState extends State<SearchPage> {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => ResultsPage(
+          builder: (context) =>
+              ResultsPage(
             query: query,
             results: results,
           ),
@@ -74,7 +68,8 @@ class _SearchPageState extends State<SearchPage> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
             'Search failed: $e',
@@ -93,6 +88,7 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void dispose() {
     _searchController.dispose();
+
     super.dispose();
   }
 
@@ -100,15 +96,22 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Search'),
+        title: const Text(
+          'Search',
+        ),
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32),
+          padding:
+              const EdgeInsets.all(32),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 700),
+            constraints:
+                const BoxConstraints(
+              maxWidth: 700,
+            ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
               children: [
                 const Icon(
                   Icons.search,
@@ -119,48 +122,56 @@ class _SearchPageState extends State<SearchPage> {
 
                 Text(
                   'Search Local Files',
-                  textAlign: TextAlign.center,
-                  style:
-                      Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                  textAlign:
+                      TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
+                      ?.copyWith(
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
                 ),
 
                 const SizedBox(height: 12),
 
                 const Text(
-                  'Enter a keyword or natural-language query to search your local file library.',
-                  textAlign: TextAlign.center,
-                ),
-
-                const SizedBox(height: 12),
-
-                Text(
-                  '${widget.files.length} local file(s) available for search',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  'Enter a keyword or natural-language query '
+                  'to search your indexed local file library.',
+                  textAlign:
+                      TextAlign.center,
                 ),
 
                 const SizedBox(height: 32),
 
                 Semantics(
-                  label: 'Search query input field',
+                  label:
+                      'Search query input field',
                   textField: true,
                   child: TextField(
-                    controller: _searchController,
+                    controller:
+                        _searchController,
                     autofocus: true,
-                    enabled: !_isSearching,
-                    textInputAction: TextInputAction.search,
+                    enabled:
+                        !_isSearching,
+                    textInputAction:
+                        TextInputAction.search,
                     onSubmitted: (_) {
                       if (!_isSearching) {
                         _performSearch();
                       }
                     },
-                    decoration: const InputDecoration(
-                      labelText: 'Search query',
-                      hintText: 'Search local documents...',
-                      prefixIcon: Icon(Icons.manage_search),
-                      border: OutlineInputBorder(),
+                    decoration:
+                        const InputDecoration(
+                      labelText:
+                          'Search query',
+                      hintText:
+                          'Search local documents...',
+                      prefixIcon: Icon(
+                        Icons.manage_search,
+                      ),
+                      border:
+                          OutlineInputBorder(),
                     ),
                   ),
                 ),
@@ -169,24 +180,35 @@ class _SearchPageState extends State<SearchPage> {
 
                 Semantics(
                   button: true,
-                  label: 'Search the local file library',
-                  child: ElevatedButton.icon(
-                    onPressed: _isSearching ? null : _performSearch,
+                  label:
+                      'Search the local file library',
+                  child:
+                      ElevatedButton.icon(
+                    onPressed: _isSearching
+                        ? null
+                        : _performSearch,
                     icon: _isSearching
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(
+                            child:
+                                CircularProgressIndicator(
                               strokeWidth: 2,
                             ),
                           )
-                        : const Icon(Icons.search),
+                        : const Icon(
+                            Icons.search,
+                          ),
                     label: Padding(
-                      padding: const EdgeInsets.symmetric(
+                      padding:
+                          const EdgeInsets
+                              .symmetric(
                         vertical: 14,
                       ),
                       child: Text(
-                        _isSearching ? 'Searching...' : 'Search',
+                        _isSearching
+                            ? 'Searching...'
+                            : 'Search',
                       ),
                     ),
                   ),
@@ -196,15 +218,21 @@ class _SearchPageState extends State<SearchPage> {
 
                 const Card(
                   child: Padding(
-                    padding: EdgeInsets.all(16),
+                    padding:
+                        EdgeInsets.all(16),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
                       children: [
-                        Icon(Icons.info_outline),
+                        Icon(
+                          Icons.info_outline,
+                        ),
                         SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Search is performed locally. '
+                            'Search is performed locally using '
+                            'the persistent semantic index. '
                             'Your files and queries are not uploaded '
                             'to the internet.',
                           ),

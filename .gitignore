@@ -23,3 +23,9 @@ __pycache__/
 .venv/
 
 models/embeddings/
+
+# Local vector database
+chroma_db/
+
+# Downloaded local ML models
+models/bert-base-uncased/

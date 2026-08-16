@@ -1,6 +1,6 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../services/retrieval_service.dart';
 import 'library_page.dart';
 import 'search_page.dart';
 import 'settings_page.dart';
@@ -24,21 +24,91 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final List<PlatformFile> _importedFiles = [];
+  List<IndexedFile> _indexedFiles = [];
 
-  void _updateImportedFiles(List<PlatformFile> files) {
-    setState(() {
-      _importedFiles
-        ..clear()
-        ..addAll(files);
-    });
+  bool _loadingFiles = true;
+  String? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadIndexedFiles();
+  }
+
+  Future<void> _loadIndexedFiles() async {
+    try {
+      final files =
+          await RetrievalService.loadIndexedFiles();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _indexedFiles = files;
+        _loadingFiles = false;
+        _loadError = null;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loadingFiles = false;
+        _loadError = e.toString();
+      });
+    }
+  }
+
+  Future<void> _openLibrary() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LibraryPage(
+          initialFiles: _indexedFiles,
+        ),
+      ),
+    );
+
+    // Reload from ChromaDB after returning
+    // so imports/deletions are reflected on HomePage.
+    await _loadIndexedFiles();
+  }
+
+  void _openSearch() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SearchPage(),
+      ),
+    );
+  }
+
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SettingsPage(
+          highContrast: widget.highContrast,
+          fontScale: widget.fontScale,
+          onHighContrastChanged:
+              widget.onHighContrastChanged,
+          onFontScaleChanged:
+              widget.onFontScaleChanged,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Offline Local Retrieval System'),
+        title: const Text(
+          'Offline Local Retrieval System',
+        ),
         centerTitle: true,
       ),
       body: FocusTraversalGroup(
@@ -47,9 +117,11 @@ class _HomePageState extends State<HomePage> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
+              constraints:
+                  const BoxConstraints(maxWidth: 600),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
                 children: [
                   Semantics(
                     label: 'Local file retrieval application',
@@ -65,10 +137,12 @@ class _HomePageState extends State<HomePage> {
                   Text(
                     'Local Semantic Search',
                     textAlign: TextAlign.center,
-                    style:
-                        Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineMedium
+                        ?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
 
                   const SizedBox(height: 10),
@@ -85,28 +159,24 @@ class _HomePageState extends State<HomePage> {
                     child: Semantics(
                       button: true,
                       label: 'Open file library',
-                      hint: 'View and manage local files',
+                      hint:
+                          'View and manage indexed local files',
                       child: SizedBox(
                         width: 240,
                         child: ElevatedButton.icon(
                           autofocus: true,
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => LibraryPage(
-                                  initialFiles: _importedFiles,
-                                  onFilesChanged: _updateImportedFiles,
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.folder),
+                          onPressed: _openLibrary,
+                          icon: const Icon(
+                            Icons.folder,
+                          ),
                           label: const Padding(
-                            padding: EdgeInsets.symmetric(
+                            padding:
+                                EdgeInsets.symmetric(
                               vertical: 12,
                             ),
-                            child: Text('File Library'),
+                            child: Text(
+                              'File Library',
+                            ),
                           ),
                         ),
                       ),
@@ -120,26 +190,23 @@ class _HomePageState extends State<HomePage> {
                     child: Semantics(
                       button: true,
                       label: 'Open search interface',
-                      hint: 'Search the local file library',
+                      hint:
+                          'Search the indexed local file library',
                       child: SizedBox(
                         width: 240,
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => SearchPage(
-                                  files: _importedFiles,
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.search),
+                          onPressed: _openSearch,
+                          icon: const Icon(
+                            Icons.search,
+                          ),
                           label: const Padding(
-                            padding: EdgeInsets.symmetric(
+                            padding:
+                                EdgeInsets.symmetric(
                               vertical: 12,
                             ),
-                            child: Text('Search'),
+                            child: Text(
+                              'Search',
+                            ),
                           ),
                         ),
                       ),
@@ -152,33 +219,25 @@ class _HomePageState extends State<HomePage> {
                     order: const NumericFocusOrder(3),
                     child: Semantics(
                       button: true,
-                      label: 'Open accessibility settings',
+                      label:
+                          'Open accessibility settings',
                       hint:
                           'Change high contrast mode and application font size',
                       child: SizedBox(
                         width: 240,
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => SettingsPage(
-                                  highContrast: widget.highContrast,
-                                  fontScale: widget.fontScale,
-                                  onHighContrastChanged:
-                                      widget.onHighContrastChanged,
-                                  onFontScaleChanged:
-                                      widget.onFontScaleChanged,
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.settings),
+                          onPressed: _openSettings,
+                          icon: const Icon(
+                            Icons.settings,
+                          ),
                           label: const Padding(
-                            padding: EdgeInsets.symmetric(
+                            padding:
+                                EdgeInsets.symmetric(
                               vertical: 12,
                             ),
-                            child: Text('Settings'),
+                            child: Text(
+                              'Settings',
+                            ),
                           ),
                         ),
                       ),
@@ -187,15 +246,41 @@ class _HomePageState extends State<HomePage> {
 
                   const SizedBox(height: 28),
 
-                  Text(
-                    '${_importedFiles.length} local file(s) imported',
-                    textAlign: TextAlign.center,
-                  ),
+                  if (_loadingFiles)
+                    const Column(
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 10),
+                        Text(
+                          'Loading local file index...',
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      '${_indexedFiles.length} '
+                      'local file(s) indexed',
+                      textAlign: TextAlign.center,
+                    ),
+
+                  if (_loadError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Could not load the local file index.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .error,
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 12),
 
                   const Text(
-                    'Keyboard: Tab / Shift+Tab to navigate, Enter or Space to select.',
+                    'Keyboard: Tab / Shift+Tab to navigate, '
+                    'Enter or Space to select.',
                     textAlign: TextAlign.center,
                   ),
                 ],

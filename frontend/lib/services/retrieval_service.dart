@@ -6,90 +6,112 @@ import 'package:file_picker/file_picker.dart';
 class RetrievalResult {
   final String fileName;
   final String filePath;
+  final String fileType;
   final double score;
 
   const RetrievalResult({
     required this.fileName,
     required this.filePath,
+    required this.fileType,
     required this.score,
   });
 
-  factory RetrievalResult.fromJson(Map<String, dynamic> json) {
+  factory RetrievalResult.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return RetrievalResult(
-      fileName: json['fileName'] as String,
-      filePath: json['filePath'] as String,
-      score: (json['score'] as num).toDouble(),
+      fileName: json['fileName'] as String? ?? '',
+      filePath: json['filePath'] as String? ?? '',
+      fileType: json['fileType'] as String? ?? '',
+      score: (json['score'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class IndexedFile {
+  final String id;
+  final String fileName;
+  final String filePath;
+  final String fileType;
+  final int fileSize;
+  final double lastModified;
+  final bool exists;
+
+  const IndexedFile({
+    required this.id,
+    required this.fileName,
+    required this.filePath,
+    required this.fileType,
+    required this.fileSize,
+    required this.lastModified,
+    required this.exists,
+  });
+
+  factory IndexedFile.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return IndexedFile(
+      id: json['id'] as String? ?? '',
+      fileName: json['fileName'] as String? ?? '',
+      filePath: json['filePath'] as String? ?? '',
+      fileType: json['fileType'] as String? ?? '',
+      fileSize: (json['fileSize'] as num?)?.toInt() ?? 0,
+      lastModified:
+          (json['lastModified'] as num?)?.toDouble() ?? 0.0,
+      exists: json['exists'] as bool? ?? false,
     );
   }
 }
 
 class RetrievalService {
-  static Future<List<RetrievalResult>> search({
-    required String query,
-    required List<PlatformFile> files,
-    int topK = 5,
-  }) async {
-    if (query.trim().isEmpty) {
-      throw ArgumentError('Search query cannot be empty.');
-    }
+  static const String _jarPath =
+      '../backend/target/backend-1.0-SNAPSHOT.jar';
 
-    final filePaths = files
+  static Future<void> indexFiles(
+    List<PlatformFile> files,
+  ) async {
+    final paths = files
         .where((file) => file.path != null)
         .map((file) => file.path!)
         .toList();
 
-    if (filePaths.isEmpty) {
-      throw StateError('No local files have been imported.');
-    }
-
-    final jarPath = '../backend/target/backend-1.0-SNAPSHOT.jar';
-
-    final jarFile = File(jarPath);
-
-    if (!await jarFile.exists()) {
+    if (paths.isEmpty) {
       throw StateError(
-        'Backend JAR not found at $jarPath. '
-        'Run "mvn clean package -DskipTests" in the backend directory first.',
+        'No valid local files were selected.',
       );
     }
 
-    final arguments = <String>[
-      '-jar',
-      jarPath,
-      query.trim(),
-      topK.toString(),
-      ...filePaths,
-    ];
+    await _runBackend(
+      [
+        'index',
+        ...paths,
+      ],
+    );
+  }
 
-    final processResult = await Process.run(
-      'java',
-      arguments,
-      runInShell: true,
+  static Future<List<RetrievalResult>> search({
+    required String query,
+    int topK = 5,
+  }) async {
+    if (query.trim().isEmpty) {
+      throw ArgumentError(
+        'Search query cannot be empty.',
+      );
+    }
+
+    final output = await _runBackend(
+      [
+        'search',
+        query.trim(),
+        topK.toString(),
+      ],
     );
 
-    if (processResult.exitCode != 0) {
-      final error = processResult.stderr.toString().trim();
-
-      throw StateError(
-        error.isEmpty
-            ? 'Backend process failed with exit code ${processResult.exitCode}.'
-            : 'Backend process failed: $error',
-      );
-    }
-
-    final stdout = processResult.stdout.toString().trim();
-
-    if (stdout.isEmpty) {
-      return [];
-    }
-
-    final jsonText = _extractJsonArray(stdout);
-
-    final decoded = jsonDecode(jsonText);
+    final decoded = jsonDecode(output);
 
     if (decoded is! List) {
       throw const FormatException(
-        'Backend returned an unexpected response.',
+        'Backend returned an invalid search response.',
       );
     }
 
@@ -102,16 +124,89 @@ class RetrievalService {
         .toList();
   }
 
-  static String _extractJsonArray(String output) {
-    final start = output.lastIndexOf('[');
-    final end = output.lastIndexOf(']');
+  static Future<List<IndexedFile>>
+      loadIndexedFiles() async {
+    final output = await _runBackend(
+      ['list'],
+    );
 
-    if (start == -1 || end == -1 || end < start) {
-      throw FormatException(
-        'No valid JSON result was found in backend output:\n$output',
+    final decoded = jsonDecode(output);
+
+    if (decoded is! List) {
+      throw const FormatException(
+        'Backend returned an invalid file list.',
       );
     }
 
-    return output.substring(start, end + 1);
+    return decoded
+        .map(
+          (item) => IndexedFile.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
+        .toList();
+  }
+
+  static Future<void> deleteIndexedFile(
+    String id,
+  ) async {
+    if (id.trim().isEmpty) {
+      throw ArgumentError(
+        'Indexed file ID cannot be empty.',
+      );
+    }
+
+    await _runBackend(
+      [
+        'delete',
+        id,
+      ],
+    );
+  }
+
+  static Future<String> _runBackend(
+    List<String> backendArguments,
+  ) async {
+    final jar = File(_jarPath);
+
+    if (!await jar.exists()) {
+      throw StateError(
+        'Backend JAR not found at $_jarPath. '
+        'Run "mvn clean package" in the backend directory first.',
+      );
+    }
+
+    final result = await Process.run(
+      'java',
+      [
+        '-jar',
+        _jarPath,
+        ...backendArguments,
+      ],
+      runInShell: true,
+    );
+
+    if (result.exitCode != 0) {
+      final error =
+          result.stderr.toString().trim();
+
+      throw StateError(
+        error.isEmpty
+            ? 'Backend failed with exit code '
+                '${result.exitCode}.'
+            : error,
+      );
+    }
+
+    final output =
+        result.stdout.toString().trim();
+
+    if (output.isEmpty) {
+      throw const FormatException(
+        'Backend returned no output.',
+      );
+    }
+
+    return output;
   }
 }
