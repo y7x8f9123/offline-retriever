@@ -11,13 +11,16 @@ import com.offlineretriever.storage.ChromaBridgeClient.BridgeSearchResult;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class BackendCli {
 
     private static final Gson GSON =
             new Gson();
 
-    public static void main(String[] args) {
+    public static void main(
+            String[] args
+    ) {
 
         if (args.length < 1) {
             printUsage();
@@ -30,7 +33,10 @@ public class BackendCli {
                     new ChromaBridgeClient();
 
             String command =
-                    args[0].toLowerCase();
+                    args[0]
+                            .toLowerCase(
+                                    Locale.ROOT
+                            );
 
             switch (command) {
 
@@ -68,7 +74,9 @@ public class BackendCli {
                     );
             }
 
-        } catch (Exception e) {
+        } catch (
+                Exception e
+        ) {
 
             System.err.println(
                     "Backend error: " +
@@ -89,6 +97,7 @@ public class BackendCli {
     ) throws Exception {
 
         if (args.length < 2) {
+
             throw new IllegalArgumentException(
                     "Usage: index <file1> [file2] ..."
             );
@@ -100,16 +109,48 @@ public class BackendCli {
         List<String> skipped =
                 new ArrayList<>();
 
-        for (int i = 1; i < args.length; i++) {
+        for (
+                int i = 1;
+                i < args.length;
+                i++
+        ) {
 
             File file =
-                    new File(args[i]);
+                    new File(
+                            args[i]
+                    );
 
             if (
                     !file.exists() ||
                     !file.isFile()
             ) {
-                skipped.add(args[i]);
+
+                skipped.add(
+                        args[i]
+                );
+
+                continue;
+            }
+
+            String extension =
+                    getExtension(
+                            file.getName()
+                    );
+
+            if (
+                    isImageExtension(
+                            extension
+                    )
+            ) {
+
+                chroma.indexImage(
+                        file
+                );
+
+                indexed.add(
+                        file.getName()
+                );
+
                 continue;
             }
 
@@ -118,10 +159,14 @@ public class BackendCli {
                             file.getName()
                     );
 
-            if (parser == null) {
+            if (
+                    parser == null
+            ) {
+
                 skipped.add(
                         file.getName()
                 );
+
                 continue;
             }
 
@@ -132,11 +177,28 @@ public class BackendCli {
 
             if (
                     content == null ||
-                    content.trim().isEmpty()
+                    content
+                            .trim()
+                            .isEmpty()
             ) {
+
                 skipped.add(
                         file.getName()
                 );
+
+                continue;
+            }
+
+            if (
+                    content.startsWith(
+                            "Error reading document:"
+                    )
+            ) {
+
+                skipped.add(
+                        file.getName()
+                );
+
                 continue;
             }
 
@@ -157,7 +219,9 @@ public class BackendCli {
                 );
 
         System.out.println(
-                GSON.toJson(response)
+                GSON.toJson(
+                        response
+                )
         );
     }
 
@@ -166,13 +230,17 @@ public class BackendCli {
             String[] args
     ) throws Exception {
 
-        if (args.length < 3) {
+        if (
+                args.length < 3
+        ) {
+
             throw new IllegalArgumentException(
                     "Usage: search <query> <topK>"
             );
         }
 
-        String query = args[1];
+        String query =
+                args[1];
 
         int topK =
                 Integer.parseInt(
@@ -180,13 +248,15 @@ public class BackendCli {
                 );
 
         List<BridgeSearchResult> results =
-                chroma.searchText(
+                chroma.searchAll(
                         query,
                         topK
                 );
 
         System.out.println(
-                GSON.toJson(results)
+                GSON.toJson(
+                        results
+                )
         );
     }
 
@@ -198,7 +268,9 @@ public class BackendCli {
                 chroma.listFiles();
 
         System.out.println(
-                GSON.toJson(files)
+                GSON.toJson(
+                        files
+                )
         );
     }
 
@@ -207,15 +279,21 @@ public class BackendCli {
             String[] args
     ) throws Exception {
 
-        if (args.length < 2) {
+        if (
+                args.length < 2
+        ) {
+
             throw new IllegalArgumentException(
                     "Usage: delete <id>"
             );
         }
 
-        String id = args[1];
+        String id =
+                args[1];
 
-        chroma.deleteFile(id);
+        chroma.deleteFile(
+                id
+        );
 
         System.out.println(
                 GSON.toJson(
@@ -225,6 +303,39 @@ public class BackendCli {
                         )
                 )
         );
+    }
+
+    private static boolean isImageExtension(
+            String extension
+    ) {
+
+        return extension.equals("jpg") ||
+                extension.equals("jpeg") ||
+                extension.equals("png");
+    }
+
+    private static String getExtension(
+            String fileName
+    ) {
+
+        int index =
+                fileName.lastIndexOf('.');
+
+        if (
+                index < 0 ||
+                index ==
+                        fileName.length() - 1
+        ) {
+            return "";
+        }
+
+        return fileName
+                .substring(
+                        index + 1
+                )
+                .toLowerCase(
+                        Locale.ROOT
+                );
     }
 
     private static void printUsage() {
@@ -252,15 +363,22 @@ public class BackendCli {
 
     private static class IndexResponse {
 
-        private final List<String> indexed;
-        private final List<String> skipped;
+        private final List<String>
+                indexed;
+
+        private final List<String>
+                skipped;
 
         private IndexResponse(
                 List<String> indexed,
                 List<String> skipped
         ) {
-            this.indexed = indexed;
-            this.skipped = skipped;
+
+            this.indexed =
+                    indexed;
+
+            this.skipped =
+                    skipped;
         }
     }
 
@@ -273,8 +391,12 @@ public class BackendCli {
                 String status,
                 String id
         ) {
-            this.status = status;
-            this.id = id;
+
+            this.status =
+                    status;
+
+            this.id =
+                    id;
         }
     }
 }

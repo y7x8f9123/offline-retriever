@@ -6,7 +6,9 @@ import chromadb
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = PROJECT_ROOT / "chroma_db"
-COLLECTION_NAME = "offline_retriever_files"
+
+TEXT_COLLECTION = "offline_retriever_text"
+IMAGE_COLLECTION = "offline_retriever_images"
 
 
 class ChromaStore:
@@ -15,10 +17,10 @@ class ChromaStore:
             path=str(DB_PATH)
         )
 
-        self.collection = self.client.get_or_create_collection(
-            name=COLLECTION_NAME,
+        self.text_collection = self.client.get_or_create_collection(
+            name=TEXT_COLLECTION,
             metadata={
-                "description": "Offline Retriever local file embeddings"
+                "description": "BERT text embeddings"
             },
             configuration={
                 "hnsw": {
@@ -27,57 +29,144 @@ class ChromaStore:
             }
         )
 
-    def add_file(
+        self.image_collection = self.client.get_or_create_collection(
+            name=IMAGE_COLLECTION,
+            metadata={
+                "description": "MobileCLIP image embeddings"
+            },
+            configuration={
+                "hnsw": {
+                    "space": "cosine"
+                }
+            }
+        )
+
+    def add_text_file(
         self,
         file_id: str,
         embedding: list[float],
         metadata: dict[str, Any],
         document: str = "",
     ) -> None:
-        self.collection.upsert(
+        self.text_collection.upsert(
             ids=[file_id],
             embeddings=[embedding],
             metadatas=[metadata],
             documents=[document],
         )
 
-    def search(
+    def add_image_file(
+        self,
+        file_id: str,
+        embedding: list[float],
+        metadata: dict[str, Any],
+    ) -> None:
+        self.image_collection.upsert(
+            ids=[file_id],
+            embeddings=[embedding],
+            metadatas=[metadata],
+        )
+
+    def search_text(
         self,
         query_embedding: list[float],
         top_k: int = 5,
     ) -> dict:
-        return self.collection.query(
+        count = self.text_collection.count()
+
+        if count == 0:
+            return {
+                "ids": [[]],
+                "metadatas": [[]],
+                "distances": [[]],
+            }
+
+        return self.text_collection.query(
             query_embeddings=[query_embedding],
-            n_results=top_k,
+            n_results=min(top_k, count),
             include=[
                 "metadatas",
-                "documents",
+                "distances",
+            ],
+        )
+
+    def search_images(
+        self,
+        query_embedding: list[float],
+        top_k: int = 5,
+    ) -> dict:
+        count = self.image_collection.count()
+
+        if count == 0:
+            return {
+                "ids": [[]],
+                "metadatas": [[]],
+                "distances": [[]],
+            }
+
+        return self.image_collection.query(
+            query_embeddings=[query_embedding],
+            n_results=min(top_k, count),
+            include=[
+                "metadatas",
                 "distances",
             ],
         )
 
     def delete_file(self, file_id: str) -> None:
-        self.collection.delete(
+        self.text_collection.delete(
             ids=[file_id]
         )
 
-    def get_all_files(self) -> dict:
-        return self.collection.get(
-            include=[
-                "metadatas",
-                "documents",
-            ]
+        self.image_collection.delete(
+            ids=[file_id]
         )
 
-    def count(self) -> int:
-        return self.collection.count()
+    def get_all_files(self) -> list[dict]:
+        output = []
+
+        text_result = self.text_collection.get(
+            include=["metadatas"]
+        )
+
+        for file_id, metadata in zip(
+            text_result.get("ids", []),
+            text_result.get("metadatas", []),
+        ):
+            output.append(
+                {
+                    "id": file_id,
+                    **metadata,
+                }
+            )
+
+        image_result = self.image_collection.get(
+            include=["metadatas"]
+        )
+
+        for file_id, metadata in zip(
+            image_result.get("ids", []),
+            image_result.get("metadatas", []),
+        ):
+            output.append(
+                {
+                    "id": file_id,
+                    **metadata,
+                }
+            )
+
+        return output
+
+    def text_count(self) -> int:
+        return self.text_collection.count()
+
+    def image_count(self) -> int:
+        return self.image_collection.count()
 
 
 if __name__ == "__main__":
     store = ChromaStore()
 
-    store.delete_file("test-file-001")
-
     print("ChromaDB path:", DB_PATH)
-    print("Collection:", COLLECTION_NAME)
-    print("Stored records:", store.count())
+    print("Text records:", store.text_count())
+    print("Image records:", store.image_count())

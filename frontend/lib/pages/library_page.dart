@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/retrieval_service.dart';
 
@@ -33,7 +36,8 @@ class _LibraryPageState
 
   Future<void> _reloadFiles() async {
     final files =
-        await RetrievalService.loadIndexedFiles();
+        await RetrievalService
+            .loadIndexedFiles();
 
     if (!mounted) {
       return;
@@ -53,6 +57,9 @@ class _LibraryPageState
         'txt',
         'pdf',
         'docx',
+        'jpg',
+        'jpeg',
+        'png',
       ],
     );
 
@@ -75,10 +82,12 @@ class _LibraryPageState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
-            '${selectedFiles.length} file(s) indexed successfully.',
+            '${selectedFiles.length} '
+            'file(s) indexed successfully.',
           ),
         ),
       );
@@ -87,7 +96,8 @@ class _LibraryPageState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
             'Import failed: $e',
@@ -103,6 +113,71 @@ class _LibraryPageState
     }
   }
 
+  Future<void> _openFile(
+    IndexedFile file,
+  ) async {
+    final localFile =
+        File(file.filePath);
+
+    if (!await localFile.exists()) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            'File not found: '
+            '${file.filePath}',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    try {
+      final opened =
+          await launchUrl(
+        Uri.file(
+          file.filePath,
+        ),
+        mode:
+            LaunchMode.externalApplication,
+      );
+
+      if (
+          !opened &&
+          mounted
+      ) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not open '
+              '${file.fileName}.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to open '
+            '${file.fileName}: $e',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _removeFile(
     IndexedFile file,
   ) async {
@@ -111,7 +186,8 @@ class _LibraryPageState
     });
 
     try {
-      await RetrievalService.deleteIndexedFile(
+      await RetrievalService
+          .deleteIndexedFile(
         file.id,
       );
 
@@ -121,10 +197,12 @@ class _LibraryPageState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
-            '${file.fileName} removed from the index.',
+            '${file.fileName} '
+            'removed from the index.',
           ),
         ),
       );
@@ -133,7 +211,8 @@ class _LibraryPageState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
             'Delete failed: $e',
@@ -149,7 +228,9 @@ class _LibraryPageState
     }
   }
 
-  String _formatFileSize(int bytes) {
+  String _formatFileSize(
+    int bytes,
+  ) {
     if (bytes < 1024) {
       return '$bytes B';
     }
@@ -162,9 +243,9 @@ class _LibraryPageState
   }
 
   String _fileTypeLabel(
-    String fileType,
+    String type,
   ) {
-    switch (fileType.toLowerCase()) {
+    switch (type.toLowerCase()) {
       case 'pdf':
         return 'PDF document';
 
@@ -174,15 +255,22 @@ class _LibraryPageState
       case 'txt':
         return 'Text document';
 
+      case 'jpg':
+      case 'jpeg':
+        return 'JPEG image';
+
+      case 'png':
+        return 'PNG image';
+
       default:
-        return 'Document';
+        return 'File';
     }
   }
 
   IconData _fileIcon(
-    String fileType,
+    String type,
   ) {
-    switch (fileType.toLowerCase()) {
+    switch (type.toLowerCase()) {
       case 'pdf':
         return Icons.picture_as_pdf;
 
@@ -192,13 +280,20 @@ class _LibraryPageState
       case 'txt':
         return Icons.text_snippet;
 
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return Icons.image;
+
       default:
         return Icons.insert_drive_file;
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -206,7 +301,8 @@ class _LibraryPageState
         ),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding:
+            const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment:
               CrossAxisAlignment.stretch,
@@ -214,12 +310,15 @@ class _LibraryPageState
             Semantics(
               button: true,
               label:
-                  'Import supported local documents',
+                  'Import supported local files',
               hint:
-                  'Supported formats are TXT, PDF, and DOCX',
-              child: ElevatedButton.icon(
+                  'Supported formats are TXT, PDF, DOCX, JPG, JPEG, and PNG',
+              child:
+                  ElevatedButton.icon(
                 onPressed:
-                    _busy ? null : _importFiles,
+                    _busy
+                        ? null
+                        : _importFiles,
                 icon: _busy
                     ? const SizedBox(
                         width: 18,
@@ -240,52 +339,71 @@ class _LibraryPageState
               ),
             ),
 
-            const SizedBox(height: 12),
-
-            const Text(
-              'Supported formats: TXT, PDF, DOCX',
-              textAlign: TextAlign.center,
+            const SizedBox(
+              height: 12,
             ),
 
-            const SizedBox(height: 24),
+            const Text(
+              'Supported formats: '
+              'TXT, PDF, DOCX, JPG, JPEG, PNG',
+              textAlign:
+                  TextAlign.center,
+            ),
+
+            const SizedBox(
+              height: 24,
+            ),
 
             Text(
-              'Indexed Files (${_files.length})',
+              'Indexed Files '
+              '(${_files.length})',
               style: Theme.of(context)
                   .textTheme
                   .titleLarge,
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(
+              height: 12,
+            ),
 
             Expanded(
               child: _files.isEmpty
                   ? const Center(
                       child: Text(
                         'No indexed files yet.\n'
-                        'Select Import Files to add local documents.',
-                        textAlign: TextAlign.center,
+                        'Select Import Files '
+                        'to add local documents '
+                        'or images.',
+                        textAlign:
+                            TextAlign.center,
                       ),
                     )
                   : ListView.separated(
-                      itemCount: _files.length,
+                      itemCount:
+                          _files.length,
                       separatorBuilder:
-                          (context, index) {
+                          (
+                            context,
+                            index,
+                          ) {
                         return const SizedBox(
                           height: 10,
                         );
                       },
                       itemBuilder:
-                          (context, index) {
+                          (
+                            context,
+                            index,
+                          ) {
                         final file =
                             _files[index];
 
-                        final typeLabel =
+                        final label =
                             _fileTypeLabel(
                           file.fileType,
                         );
 
-                        final statusText =
+                        final status =
                             file.exists
                                 ? ''
                                 : ' • Missing';
@@ -293,12 +411,14 @@ class _LibraryPageState
                         return Semantics(
                           label:
                               '${file.fileName}, '
-                              '$typeLabel, '
+                              '$label, '
                               '${_formatFileSize(file.fileSize)}'
                               '${file.exists ? '' : ', original file missing'}',
                           child: Card(
-                            child: ListTile(
-                              leading: Icon(
+                            child:
+                                ListTile(
+                              leading:
+                                  Icon(
                                 _fileIcon(
                                   file.fileType,
                                 ),
@@ -308,26 +428,50 @@ class _LibraryPageState
                                 file.fileName,
                               ),
                               subtitle: Text(
-                                '$typeLabel • '
+                                '$label • '
                                 '${_formatFileSize(file.fileSize)}'
-                                '$statusText',
+                                '$status',
                               ),
-                              trailing:
+                              trailing: Row(
+                                mainAxisSize:
+                                    MainAxisSize.min,
+                                children: [
                                   IconButton(
-                                tooltip:
-                                    'Remove ${file.fileName} from index',
-                                onPressed:
-                                    _busy
-                                        ? null
-                                        : () {
-                                            _removeFile(
-                                              file,
-                                            );
-                                          },
-                                icon: const Icon(
-                                  Icons
-                                      .delete_outline,
-                                ),
+                                    tooltip:
+                                        'Open ${file.fileName}',
+                                    onPressed:
+                                        file.exists &&
+                                                !_busy
+                                            ? () {
+                                                _openFile(
+                                                  file,
+                                                );
+                                              }
+                                            : null,
+                                    icon:
+                                        const Icon(
+                                      Icons
+                                          .open_in_new,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip:
+                                        'Remove ${file.fileName} from index',
+                                    onPressed:
+                                        _busy
+                                            ? null
+                                            : () {
+                                                _removeFile(
+                                                  file,
+                                                );
+                                              },
+                                    icon:
+                                        const Icon(
+                                      Icons
+                                          .delete_outline,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

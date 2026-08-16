@@ -5,7 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/retrieval_service.dart';
 
-class ResultsPage extends StatelessWidget {
+class ResultsPage
+    extends StatelessWidget {
   const ResultsPage({
     super.key,
     required this.query,
@@ -15,22 +16,16 @@ class ResultsPage extends StatelessWidget {
   final String query;
   final List<RetrievalResult> results;
 
-  String _formatScore(double score) {
+  String _formatScore(
+    double score,
+  ) {
     return score.toStringAsFixed(4);
   }
 
-  String _extensionOf(String fileName) {
-    final index = fileName.lastIndexOf('.');
-
-    if (index == -1 || index == fileName.length - 1) {
-      return '';
-    }
-
-    return fileName.substring(index + 1).toLowerCase();
-  }
-
-  String _fileTypeLabel(String fileName) {
-    switch (_extensionOf(fileName)) {
+  String _fileTypeLabel(
+    String type,
+  ) {
+    switch (type.toLowerCase()) {
       case 'pdf':
         return 'PDF document';
 
@@ -40,13 +35,22 @@ class ResultsPage extends StatelessWidget {
       case 'txt':
         return 'Text document';
 
+      case 'jpg':
+      case 'jpeg':
+        return 'JPEG image';
+
+      case 'png':
+        return 'PNG image';
+
       default:
-        return 'Document';
+        return 'File';
     }
   }
 
-  IconData _fileIcon(String fileName) {
-    switch (_extensionOf(fileName)) {
+  IconData _fileIcon(
+    String type,
+  ) {
+    switch (type.toLowerCase()) {
       case 'pdf':
         return Icons.picture_as_pdf;
 
@@ -55,6 +59,11 @@ class ResultsPage extends StatelessWidget {
 
       case 'txt':
         return Icons.text_snippet;
+
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return Icons.image;
 
       default:
         return Icons.insert_drive_file;
@@ -65,36 +74,50 @@ class ResultsPage extends StatelessWidget {
     BuildContext context,
     RetrievalResult result,
   ) async {
-    final file = File(result.filePath);
+    final file =
+        File(result.filePath);
 
     if (!await file.exists()) {
       if (!context.mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
-            'File not found: ${result.filePath}',
+            'File not found: '
+            '${result.filePath}',
           ),
         ),
       );
+
       return;
     }
 
     try {
-      final uri = Uri.file(result.filePath);
-
-      final opened = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
+      final uri =
+          Uri.file(
+        result.filePath,
       );
 
-      if (!opened && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      final opened =
+          await launchUrl(
+        uri,
+        mode:
+            LaunchMode.externalApplication,
+      );
+
+      if (
+          !opened &&
+          context.mounted
+      ) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
           SnackBar(
             content: Text(
-              'Could not open ${result.fileName}.',
+              'Could not open '
+              '${result.fileName}.',
             ),
           ),
         );
@@ -104,10 +127,12 @@ class ResultsPage extends StatelessWidget {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
-            'Failed to open ${result.fileName}: $e',
+            'Failed to open '
+            '${result.fileName}: $e',
           ),
         ),
       );
@@ -115,94 +140,145 @@ class ResultsPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Search Results'),
+        title:
+            const Text(
+          'Search Results',
+        ),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding:
+            const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
           children: [
             Text(
               'Query: "$query"',
-              style: Theme.of(context).textTheme.titleLarge,
+              style:
+                  Theme.of(context)
+                      .textTheme
+                      .titleLarge,
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(
+              height: 8,
+            ),
 
             Text(
-              '${results.length} matching file(s) found',
-              style: Theme.of(context).textTheme.bodyMedium,
+              '${results.length} '
+              'matching file(s) found',
+              style:
+                  Theme.of(context)
+                      .textTheme
+                      .bodyMedium,
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(
+              height: 24,
+            ),
 
             Expanded(
               child: results.isEmpty
                   ? const Center(
                       child: Text(
-                        'No matching files were found.',
-                        textAlign: TextAlign.center,
+                        'No matching files '
+                        'were found.',
+                        textAlign:
+                            TextAlign.center,
                       ),
                     )
                   : ListView.builder(
-                      itemCount: results.length,
-                      itemBuilder: (context, index) {
-                        final result = results[index];
+                      itemCount:
+                          results.length,
+                      itemBuilder:
+                          (
+                            context,
+                            index,
+                          ) {
+                        final result =
+                            results[index];
+
                         final fileType =
-                            _fileTypeLabel(result.fileName);
+                            _fileTypeLabel(
+                          result.fileType,
+                        );
 
                         return Semantics(
                           label:
-                              '${result.fileName}, $fileType, similarity ${_formatScore(result.score)}',
+                              '${result.fileName}, '
+                              '$fileType, '
+                              'similarity '
+                              '${_formatScore(result.score)}',
                           child: Card(
-                            margin: const EdgeInsets.only(bottom: 14),
-                            child: ListTile(
-                              leading: Icon(
-                                _fileIcon(result.fileName),
+                            margin:
+                                const EdgeInsets
+                                    .only(
+                              bottom: 14,
+                            ),
+                            child:
+                                ListTile(
+                              leading:
+                                  Icon(
+                                _fileIcon(
+                                  result.fileType,
+                                ),
                                 size: 36,
                               ),
-
                               title: Text(
                                 result.fileName,
                               ),
-
                               subtitle: Text(
                                 '$fileType    '
-                                'Similarity: ${_formatScore(result.score)}',
+                                'Similarity: '
+                                '${_formatScore(result.score)}',
                               ),
-
                               trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
+                                mainAxisSize:
+                                    MainAxisSize.min,
                                 children: [
                                   Text(
                                     '#${index + 1}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                    style:
+                                        Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight:
+                                                  FontWeight.bold,
+                                            ),
                                   ),
 
-                                  const SizedBox(width: 12),
+                                  const SizedBox(
+                                    width: 12,
+                                  ),
 
                                   Semantics(
                                     button: true,
-                                    label: 'Open ${result.fileName}',
-                                    child: ElevatedButton.icon(
-                                      onPressed: () {
+                                    label:
+                                        'Open ${result.fileName}',
+                                    child:
+                                        ElevatedButton.icon(
+                                      onPressed:
+                                          () {
                                         _openFile(
                                           context,
                                           result,
                                         );
                                       },
-                                      icon: const Icon(
-                                        Icons.open_in_new,
+                                      icon:
+                                          const Icon(
+                                        Icons
+                                            .open_in_new,
                                       ),
-                                      label: const Text('Open'),
+                                      label:
+                                          const Text(
+                                        'Open',
+                                      ),
                                     ),
                                   ),
                                 ],

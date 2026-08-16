@@ -4,7 +4,6 @@ import json
 import sys
 from pathlib import Path
 
-# Make project scripts importable.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 EMBEDDING_DIR = PROJECT_ROOT / "scripts" / "embedding"
 
@@ -14,17 +13,30 @@ if str(EMBEDDING_DIR) not in sys.path:
 from chroma_store import ChromaStore
 
 
-_embedding_engine = None
+_text_embedding_engine = None
+_image_embedding_engine = None
 
 
-def get_embedding_engine():
-    global _embedding_engine
+def get_text_embedding_engine():
+    global _text_embedding_engine
 
-    if _embedding_engine is None:
+    if _text_embedding_engine is None:
         from text_embedding import TextEmbedding
-        _embedding_engine = TextEmbedding()
 
-    return _embedding_engine
+        _text_embedding_engine = TextEmbedding()
+
+    return _text_embedding_engine
+
+
+def get_image_embedding_engine():
+    global _image_embedding_engine
+
+    if _image_embedding_engine is None:
+        from image_embedding import ImageEmbedding
+
+        _image_embedding_engine = ImageEmbedding()
+
+    return _image_embedding_engine
 
 
 def make_file_id(file_path: str) -> str:
@@ -51,7 +63,7 @@ def read_stdin_text() -> str:
 def command_index_text(args):
     text = read_stdin_text()
 
-    engine = get_embedding_engine()
+    engine = get_text_embedding_engine()
     embedding = engine.embed(text)
 
     store = ChromaStore()
@@ -69,7 +81,7 @@ def command_index_text(args):
         "contentType": "text",
     }
 
-    store.add_file(
+    store.add_text_file(
         file_id=file_id,
         embedding=embedding.tolist(),
         metadata=metadata,
@@ -81,6 +93,7 @@ def command_index_text(args):
             {
                 "status": "ok",
                 "id": file_id,
+                "contentType": "text",
                 "dimension": len(embedding),
             },
             ensure_ascii=False,
@@ -88,19 +101,50 @@ def command_index_text(args):
     )
 
 
-def command_search_text(args):
-    query = read_stdin_text()
+def command_index_image(args):
+    engine = get_image_embedding_engine()
 
-    engine = get_embedding_engine()
-    embedding = engine.embed(query)
+    embedding = engine.embed_image(
+        args.file_path
+    )
 
     store = ChromaStore()
 
-    result = store.search(
-        query_embedding=embedding.tolist(),
-        top_k=args.top_k,
+    file_id = make_file_id(
+        args.file_path
     )
 
+    metadata = {
+        "fileName": args.file_name,
+        "filePath": args.file_path,
+        "fileType": args.file_type,
+        "fileSize": args.file_size,
+        "lastModified": args.last_modified,
+        "contentType": "image",
+    }
+
+    store.add_image_file(
+        file_id=file_id,
+        embedding=embedding.tolist(),
+        metadata=metadata,
+    )
+
+    print(
+        json.dumps(
+            {
+                "status": "ok",
+                "id": file_id,
+                "contentType": "image",
+                "dimension": len(embedding),
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
+def convert_result(
+    result: dict,
+) -> list[dict]:
     ids = result.get(
         "ids",
         [[]],
@@ -138,13 +182,73 @@ def command_search_text(args):
                     "fileType",
                     "",
                 ),
+                "contentType": metadata.get(
+                    "contentType",
+                    "",
+                ),
                 "score": 1.0 - float(distance),
             }
         )
 
+    return output
+
+
+def command_search_all(args):
+    query = read_stdin_text()
+
+    store = ChromaStore()
+
+    text_engine = get_text_embedding_engine()
+
+    text_embedding = text_engine.embed(
+        query
+    )
+
+    text_result = store.search_text(
+        query_embedding=text_embedding.tolist(),
+        top_k=args.top_k,
+    )
+
+    text_output = convert_result(
+        text_result
+    )
+
+    image_output = []
+
+    if store.image_count() > 0:
+        image_engine = get_image_embedding_engine()
+
+        image_query_embedding = (
+            image_engine.embed_text(
+                query
+            )
+        )
+
+        image_result = store.search_images(
+            query_embedding=
+                image_query_embedding.tolist(),
+            top_k=args.top_k,
+        )
+
+        image_output = convert_result(
+            image_result
+        )
+
+    combined = (
+        text_output +
+        image_output
+    )
+
+    combined.sort(
+        key=lambda item: item["score"],
+        reverse=True,
+    )
+
+    combined = combined[:args.top_k]
+
     print(
         json.dumps(
-            output,
+            combined,
             ensure_ascii=False,
         )
     )
@@ -153,34 +257,9 @@ def command_search_text(args):
 def command_list(args):
     store = ChromaStore()
 
-    result = store.get_all_files()
-
-    ids = result.get(
-        "ids",
-        [],
-    )
-
-    metadatas = result.get(
-        "metadatas",
-        [],
-    )
-
-    output = []
-
-    for file_id, metadata in zip(
-        ids,
-        metadatas,
-    ):
-        output.append(
-            {
-                "id": file_id,
-                **metadata,
-            }
-        )
-
     print(
         json.dumps(
-            output,
+            store.get_all_files(),
             ensure_ascii=False,
         )
     )
@@ -204,11 +283,42 @@ def command_delete(args):
     )
 
 
+def add_file_arguments(
+    parser,
+):
+    parser.add_argument(
+        "--file-name",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--file-path",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--file-type",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--file-size",
+        type=int,
+        required=True,
+    )
+
+    parser.add_argument(
+        "--last-modified",
+        type=float,
+        required=True,
+    )
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         description=(
             "Offline Retriever "
-            "BERT + ChromaDB bridge"
+            "multimodal ChromaDB bridge"
         )
     )
 
@@ -217,43 +327,38 @@ def build_parser():
         required=True,
     )
 
-    index_parser = subparsers.add_parser(
-        "index-text"
+    index_text_parser = (
+        subparsers.add_parser(
+            "index-text"
+        )
     )
 
-    index_parser.add_argument(
-        "--file-name",
-        required=True,
+    add_file_arguments(
+        index_text_parser
     )
 
-    index_parser.add_argument(
-        "--file-path",
-        required=True,
-    )
-
-    index_parser.add_argument(
-        "--file-type",
-        required=True,
-    )
-
-    index_parser.add_argument(
-        "--file-size",
-        type=int,
-        required=True,
-    )
-
-    index_parser.add_argument(
-        "--last-modified",
-        type=float,
-        required=True,
-    )
-
-    index_parser.set_defaults(
+    index_text_parser.set_defaults(
         function=command_index_text
     )
 
-    search_parser = subparsers.add_parser(
-        "search-text"
+    index_image_parser = (
+        subparsers.add_parser(
+            "index-image"
+        )
+    )
+
+    add_file_arguments(
+        index_image_parser
+    )
+
+    index_image_parser.set_defaults(
+        function=command_index_image
+    )
+
+    search_parser = (
+        subparsers.add_parser(
+            "search-all"
+        )
     )
 
     search_parser.add_argument(
@@ -263,7 +368,7 @@ def build_parser():
     )
 
     search_parser.set_defaults(
-        function=command_search_text
+        function=command_search_all
     )
 
     list_parser = subparsers.add_parser(
