@@ -1,18 +1,424 @@
 # Offline Multimodal Local Content Retrieval System
 
-## Project Goal
-Build a fully offline, multimodal search system that can retrieve information from PDFs, images, and documents using semantic search.
+## Overview
+
+This project is an offline-first multimodal retrieval application for semantically searching local documents and images.
+
+The system supports local indexing and retrieval for:
+
+- TXT
+- PDF
+- DOCX
+- JPG
+- JPEG
+- PNG
+
+The application combines a Flutter frontend, Java backend, local FastAPI retrieval service, BERT text embeddings, MobileCLIP image embeddings, and ChromaDB persistent vector storage.
+
+Once the required dependencies and machine-learning models are available locally, normal indexing and semantic retrieval can operate without external network access.
+
+---
 
 ## Key Features
-- Offline-first design
-- Semantic search
-- Multimodal support (text + image)
-- Accessibility-focused design (WCAG 2.1 AA)
 
-## Tech Stack
-- Flutter (UI)
-- TensorFlow Lite (ML inference)
-- BERT (text embedding)
-- MobileCLIP (image embedding)
-- ChromaDB (vector database)
-- PDFium + Apache Tika (document parsing)
+- Offline-first local retrieval
+- Semantic text search using BERT
+- Text-to-image retrieval using MobileCLIP
+- Persistent vector storage using ChromaDB
+- TXT, PDF, and DOCX document indexing
+- JPG, JPEG, and PNG image indexing
+- Long-document chunking
+- File-level result aggregation
+- Multimodal score calibration
+- Local file library
+- Accessibility-focused Flutter interface
+- WCAG 2.1 AA design objectives
+- Java CLI and local FastAPI integration
+
+---
+
+## Architecture
+
+```text
+Flutter Frontend
+       |
+       v
+Java Backend / BackendCli
+       |
+       v
+Local FastAPI Service
+127.0.0.1:8765
+       |
+       +-------------------+
+       |                   |
+       v                   v
+     BERT              MobileCLIP
+Text Embedding       Image / Text
+       |                   |
+       +---------+---------+
+                 |
+                 v
+              ChromaDB
+```
+
+### Text Retrieval
+
+```text
+TXT / PDF / DOCX
+       ↓
+Java Parsing
+       ↓
+Long-Document Chunking
+       ↓
+BERT Embeddings
+       ↓
+ChromaDB
+       ↓
+Semantic Search
+       ↓
+File-Level Aggregation
+```
+
+### Image Retrieval
+
+```text
+JPG / JPEG / PNG
+       ↓
+MobileCLIP Image Embedding
+       ↓
+ChromaDB
+       ↓
+MobileCLIP Text Query
+       ↓
+Semantic Image Retrieval
+```
+
+---
+
+## Technology Stack
+
+### Frontend
+
+- Flutter
+- Dart
+
+### Java Backend
+
+- Java
+- Maven
+- Apache Tika
+- Gson
+- JUnit
+- JaCoCo
+
+### Local Retrieval Service
+
+- Python
+- FastAPI
+- Uvicorn
+
+### Machine Learning
+
+- BERT for text embeddings
+- MobileCLIP for image and text-image embeddings
+- PyTorch-based local inference
+
+### Vector Storage
+
+- ChromaDB
+- Cosine similarity
+- Persistent local storage
+
+---
+
+## Supported File Types
+
+| Type | Formats |
+|---|---|
+| Text documents | TXT, PDF, DOCX |
+| Images | JPG, JPEG, PNG |
+
+---
+
+## Long-Document Retrieval
+
+Long documents are divided into overlapping chunks before embedding.
+
+Current configuration:
+
+```text
+Chunk size: 400 words
+Chunk overlap: 50 words
+```
+
+Each chunk is indexed independently in ChromaDB.
+
+Search results are then aggregated back to file level so that a long document appears only once in the final result list.
+
+---
+
+## Multimodal Ranking
+
+Text and image retrieval use different embedding models.
+
+Because BERT and MobileCLIP cosine similarity scores have different distributions, image scores are calibrated before text and image results are combined.
+
+Current configuration:
+
+```text
+IMAGE_SCORE_CALIBRATION = 1.25
+```
+
+The final unified result list contains both text documents and images.
+
+---
+
+## Local Retrieval Service
+
+The local retrieval service runs at:
+
+```text
+http://127.0.0.1:8765
+```
+
+Main endpoints:
+
+```text
+GET  /health
+GET  /files
+POST /index-text
+POST /index-image
+POST /search
+POST /delete
+```
+
+The service is bound to the local loopback interface and is not intended to operate as a public network service.
+
+---
+
+## Running the Retrieval Service
+
+From the project root:
+
+```powershell
+python scripts\service\retrieval_server.py
+```
+
+A successful startup should eventually display:
+
+```text
+Offline Retriever backend ready.
+Uvicorn running on http://127.0.0.1:8765
+```
+
+Check service health with:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/health
+```
+
+---
+
+## Building the Java Backend
+
+From the backend directory:
+
+```powershell
+cd backend
+mvn clean package -DskipTests
+```
+
+The packaged JAR is generated at:
+
+```text
+backend/target/backend-1.0-SNAPSHOT.jar
+```
+
+---
+
+## Java CLI
+
+### Index Files
+
+```powershell
+java -jar backend\target\backend-1.0-SNAPSHOT.jar index example.txt
+```
+
+Multiple files can be indexed:
+
+```powershell
+java -jar backend\target\backend-1.0-SNAPSHOT.jar index file1.txt file2.pdf image.png
+```
+
+### Search
+
+```powershell
+java -jar backend\target\backend-1.0-SNAPSHOT.jar search "software engineering" 5
+```
+
+### List Indexed Files
+
+```powershell
+java -jar backend\target\backend-1.0-SNAPSHOT.jar list
+```
+
+### Delete Indexed File
+
+```powershell
+java -jar backend\target\backend-1.0-SNAPSHOT.jar delete <file-id>
+```
+
+---
+
+## Flutter Application
+
+The Flutter application is located in:
+
+```text
+frontend/
+```
+
+Install dependencies:
+
+```powershell
+cd frontend
+flutter pub get
+```
+
+Run on Windows:
+
+```powershell
+flutter run -d windows
+```
+
+Run tests:
+
+```powershell
+flutter test
+```
+
+The project includes Flutter desktop targets for Windows, macOS, and Linux.
+
+The current implementation has been functionally validated primarily on Windows. macOS and Linux runtime validation remains dependent on access to those development environments.
+
+---
+
+## Testing
+
+### Java Tests
+
+```powershell
+cd backend
+mvn test
+```
+
+### Java Coverage
+
+```powershell
+mvn clean test jacoco:report
+```
+
+Current results include approximately:
+
+```text
+Overall backend instruction coverage: 84%
+Core functional modules: 93–100%
+Vector retrieval package: 98%
+```
+
+### Flutter Tests
+
+```powershell
+cd frontend
+flutter test
+```
+
+---
+
+## Scalability Validation
+
+The retrieval pipeline was tested with 1,000 generated TXT files.
+
+Observed results:
+
+```text
+Text records before test: 12
+Text records after test: 1012
+Stress-test files confirmed: 1000
+```
+
+Measured indexing batches included:
+
+| Batch | Time |
+|---:|---:|
+| 200 files | 14.81 s |
+| 300 files | 25.94 s |
+| 450 files | 41.72 s |
+
+The initial 50-file batch was used for functional validation and was not timed.
+
+With more than 1,000 text records stored, an end-to-end semantic search completed in approximately:
+
+```text
+807 ms
+```
+
+for the query:
+
+```text
+software engineering
+```
+
+---
+
+## Offline-First Design
+
+Normal retrieval processing is local.
+
+The system performs locally:
+
+- File parsing
+- Metadata extraction
+- BERT inference
+- MobileCLIP inference
+- Vector storage
+- Semantic retrieval
+- Result ranking
+
+No remote retrieval API is required during normal operation.
+
+Initial dependency installation and model download may require Internet access.
+
+---
+
+## Documentation
+
+Detailed project documentation is available under:
+
+```text
+docs/
+```
+
+Important documents include:
+
+- `System_Architecture_Design.md`
+- `API_Reference.md`
+- `Maintenance_Guide.md`
+- `End_User_Manual.md`
+- `Open_Source_Compliance_Report.md`
+- `Demo_Script.md`
+- `PRD.md`
+
+---
+
+## License
+
+This project is released under the Apache License 2.0.
+
+See:
+
+```text
+LICENSE
+```
+
+for the full license text.

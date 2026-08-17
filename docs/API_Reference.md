@@ -2,971 +2,1069 @@
 
 ## 1. Overview
 
-This document describes the main backend APIs of the Offline Accessible Multimodal Local Content Retrieval System.
+This document describes the main application and retrieval APIs of the Offline Accessible Multimodal Local Content Retrieval System.
 
-The backend is implemented in Java and organized into independent modules for file scanning, metadata extraction, file parsing, embedding generation, vector storage, similarity calculation, and local retrieval.
+The current implementation uses three main layers:
 
-The current desktop prototype integrates the Java backend with the Flutter frontend through a local command-line interface. Search queries and selected file paths are passed to the packaged Java backend, and ranked retrieval results are returned to Flutter as JSON.
+- Flutter frontend
+- Java backend and command-line bridge
+- Local Python FastAPI retrieval service
 
-The main packages are:
+The retrieval service integrates:
 
-* `com.offlineretriever`
-* `com.offlineretriever.embedding`
-* `com.offlineretriever.factory`
-* `com.offlineretriever.io`
-* `com.offlineretriever.metadata`
-* `com.offlineretriever.model`
-* `com.offlineretriever.parser`
-* `com.offlineretriever.vector`
+- BERT text embeddings
+- MobileCLIP image/text embeddings
+- ChromaDB persistent vector storage
+- Long-document chunking
+- File-level aggregation
+- Multimodal score calibration
 
----
-
-# 2. Core Retrieval Pipeline
-
-## 2.1 RetrievalPipeline
-
-**Package**
-
-```java
-com.offlineretriever
-```
-
-`RetrievalPipeline` provides the main integration layer between parsing, embedding, vector storage, and retrieval.
-
-### Constructor
-
-```java
-public RetrievalPipeline()
-```
-
-Creates a new retrieval pipeline and initializes the components required for indexing and local similarity search.
-
-### indexFile
-
-```java
-public void indexFile(File file) throws IOException
-```
-
-Indexes a local file into the retrieval system.
-
-The method selects and uses the appropriate parser, extracts textual content, generates an embedding representation, and adds the resulting vector record to the local vector store.
-
-**Parameters**
-
-* `file` – local file to be indexed.
-
-**Throws**
-
-* `IOException` – if the file cannot be accessed or processed.
-
-### search
-
-```java
-public List<SearchResult> search(String query, int topK)
-```
-
-Performs local retrieval using a text query.
-
-The query is converted into a vector representation and compared against indexed vector records. The most relevant results are returned according to cosine similarity scores.
-
-**Parameters**
-
-* `query` – search query entered by the user.
-* `topK` – maximum number of search results to return.
-
-**Returns**
-
-A list of `SearchResult` objects ranked by similarity.
-
-### getVectorStore
-
-```java
-public VectorStore getVectorStore()
-```
-
-Returns the vector store used by the retrieval pipeline.
-
-**Returns**
-
-The current `VectorStore` instance.
-
----
-
-# 3. Embedding Module
-
-## 3.1 EmbeddingEngine
-
-**Package**
-
-```java
-com.offlineretriever.embedding
-```
-
-`EmbeddingEngine<T>` defines the common interface used by embedding implementations.
-
-It provides a standardized abstraction for converting input data into numerical vector representations.
-
-The current backend implementation uses `TextEmbeddingEngine` for textual content.
-
----
-
-## 3.2 TextEmbeddingEngine
-
-**Package**
-
-```java
-com.offlineretriever.embedding
-```
-
-`TextEmbeddingEngine` implements:
-
-```java
-EmbeddingEngine<String>
-```
-
-It converts textual input into a floating-point vector that can be stored and compared during retrieval.
-
-The current prototype generates a 256-dimensional local vector representation using deterministic token hashing.
-
-English alphanumeric tokens are supported together with Chinese character-based tokens. Chinese text is represented using individual Chinese characters and two-character combinations, allowing both English and Chinese document content to participate in local retrieval.
-
-The current prototype uses this lightweight deterministic embedding mechanism rather than a pretrained BERT model. This keeps the current retrieval workflow fully local and simple to execute during prototype testing.
-
-### embed
-
-```java
-public float[] embed(String input)
-```
-
-Generates a 256-dimensional vector representation for the supplied text.
-
-**Parameters**
-
-* `input` – text to be embedded.
-
-**Returns**
-
-A `float[]` containing the generated vector representation.
-
-**Throws**
-
-* `IllegalArgumentException` – if the supplied text is null or empty.
-
----
-
-# 4. File I/O Module
-
-## 4.1 FileScanner
-
-**Package**
-
-```java
-com.offlineretriever.io
-```
-
-`FileScanner` is responsible for discovering files in a local folder.
-
-### scan
-
-```java
-public List<Path> scan(String folderPath)
-```
-
-Scans the specified folder and returns discovered file paths.
-
-**Parameters**
-
-* `folderPath` – path of the local folder to scan.
-
-**Returns**
-
-A list of `Path` objects representing discovered files.
-
----
-
-# 5. Metadata Module
-
-## 5.1 MetadataExtractor
-
-**Package**
-
-```java
-com.offlineretriever.metadata
-```
-
-`MetadataExtractor` obtains metadata from local files before or during ingestion.
-
-### extract
-
-```java
-public FileMetadata extract(Path filePath)
-```
-
-Extracts metadata from the specified file.
-
-**Parameters**
-
-* `filePath` – path of the file.
-
-**Returns**
-
-A `FileMetadata` object containing information about the file.
-
----
-
-# 6. Metadata Model
-
-## 6.1 FileMetadata
-
-**Package**
-
-```java
-com.offlineretriever.model
-```
-
-`FileMetadata` stores descriptive information about a local file.
-
-The model contains:
-
-* File name
-* File type
-* File size
-* Last modified time
-* File path
-
-### Constructor
-
-```java
-public FileMetadata(...)
-```
-
-Creates a metadata object containing information extracted from a local file.
-
-### getFileName
-
-```java
-public String getFileName()
-```
-
-Returns the file name.
-
-### getFileType
-
-```java
-public String getFileType()
-```
-
-Returns the file type.
-
-### getFileSize
-
-```java
-public long getFileSize()
-```
-
-Returns the file size.
-
-### getLastModified
-
-```java
-public LocalDateTime getLastModified()
-```
-
-Returns the last modification date and time.
-
-### getFilePath
-
-```java
-public String getFilePath()
-```
-
-Returns the local file path.
-
-### toString
-
-```java
-public String toString()
-```
-
-Returns a readable string representation of the metadata object.
-
----
-
-# 7. Parsing Module
-
-## 7.1 Parser
-
-**Package**
-
-```java
-com.offlineretriever.parser
-```
-
-`Parser` defines the common parsing interface used by supported file parsers.
-
-Concrete parser implementations currently include:
-
-* `TextParser`
-* `DocumentParser`
-* `ImageParser`
-
-These implementations allow different local file types to be handled through a consistent parsing abstraction.
-
-The current end-to-end Flutter desktop workflow has been tested with TXT, PDF, and DOCX documents.
-
----
-
-## 7.2 TextParser
-
-**Package**
-
-```java
-com.offlineretriever.parser
-```
-
-`TextParser` implements the `Parser` interface and handles plain-text files.
-
-### parse
-
-```java
-public String parse(String filePath)
-```
-
-Reads and extracts textual content from the supplied TXT file.
-
-**Parameters**
-
-* `filePath` – path of the file to parse.
-
-**Returns**
-
-Extracted content as a `String`.
-
----
-
-## 7.3 DocumentParser
-
-**Package**
-
-```java
-com.offlineretriever.parser
-```
-
-`DocumentParser` implements the `Parser` interface and provides text extraction support for document formats including PDF and DOCX.
-
-The current implementation uses Apache Tika to extract textual content from supported local documents.
-
-Extracted text is passed to the embedding and retrieval pipeline in the same way as plain-text content.
-
-The prototype has also been manually tested with Chinese textual content extracted from PDF documents.
-
-### parse
-
-```java
-public String parse(String filePath)
-```
-
-Processes the supplied document and extracts its textual content.
-
-**Parameters**
-
-* `filePath` – path of the document.
-
-**Returns**
-
-Extracted document content as a `String`.
-
----
-
-## 7.4 ImageParser
-
-**Package**
-
-```java
-com.offlineretriever.parser
-```
-
-`ImageParser` implements the `Parser` interface and provides the parser abstraction for image files.
-
-### parse
-
-```java
-public String parse(String filePath)
-```
-
-Processes the supplied image file and returns its parsed representation.
-
-**Parameters**
-
-* `filePath` – path of the image file.
-
-**Returns**
-
-The parsed representation as a `String`.
-
-Image parser support currently exists at the backend abstraction level. Image retrieval is not yet integrated into the current end-to-end Flutter desktop retrieval workflow.
-
----
-
-# 8. Parser Factory
-
-## 8.1 ParserFactory
-
-**Package**
-
-```java
-com.offlineretriever.factory
-```
-
-`ParserFactory` selects the appropriate parser according to the supplied file name and extension.
-
-### getParser
-
-```java
-public static Parser getParser(String fileName)
-```
-
-Returns a parser suitable for the specified file.
-
-**Parameters**
-
-* `fileName` – name of the file that needs to be parsed.
-
-**Returns**
-
-An implementation of the `Parser` interface.
-
-Current parser mappings include:
-
-* `.txt` → `TextParser`
-* `.pdf` → `DocumentParser`
-* `.docx` → `DocumentParser`
-* `.jpg` → `ImageParser`
-* `.jpeg` → `ImageParser`
-* `.png` → `ImageParser`
-
-The current Flutter file-import workflow exposes TXT, PDF, and DOCX documents. Image parser support exists at the backend abstraction level but is not yet integrated into the current end-to-end desktop retrieval workflow.
-
-The factory separates parser-selection logic from the rest of the ingestion pipeline and makes it easier to extend support for additional file formats.
-
----
-
-# 9. Vector Storage and Retrieval
-
-## 9.1 VectorRecord
-
-**Package**
-
-```java
-com.offlineretriever.vector
-```
-
-`VectorRecord` represents one indexed item stored in the vector retrieval layer.
-
-It associates an identifier, file name, original local file path, and embedding vector with an indexed document.
-
-The local file path is preserved so that the Flutter frontend can open a document returned by the retrieval process.
-
-### Constructor
-
-The current `VectorRecord` constructor initializes the identifying information, source file information, and vector representation required by the retrieval pipeline.
-
-### getId
-
-```java
-public String getId()
-```
-
-Returns the record identifier.
-
-### getFileName
-
-```java
-public String getFileName()
-```
-
-Returns the associated file name.
-
-### getFilePath
-
-```java
-public String getFilePath()
-```
-
-Returns the original local path associated with the indexed file.
-
-The path can be included in retrieval output so that the Flutter desktop interface can open the matching local document using the operating system's default application.
-
-### getEmbedding
-
-```java
-public float[] getEmbedding()
-```
-
-Returns the embedding vector.
-
-### setId
-
-```java
-public void setId(String id)
-```
-
-Updates the record identifier.
-
-### setFileName
-
-```java
-public void setFileName(String fileName)
-```
-
-Updates the associated file name.
-
-### setFilePath
-
-```java
-public void setFilePath(String filePath)
-```
-
-Updates the associated local file path.
-
-### setEmbedding
-
-```java
-public void setEmbedding(float[] embedding)
-```
-
-Updates the embedding vector.
-
-### toString
-
-```java
-public String toString()
-```
-
-Returns a readable string representation of the vector record.
-
----
-
-## 9.2 VectorStore
-
-**Package**
-
-```java
-com.offlineretriever.vector
-```
-
-`VectorStore` manages the collection of indexed vector records used by the retrieval engine.
-
-The current prototype uses an in-memory vector store.
-
-### Constructor
-
-```java
-public VectorStore()
-```
-
-Creates an empty vector store.
-
-### add
-
-```java
-public void add(VectorRecord record)
-```
-
-Adds a vector record to the store.
-
-**Parameters**
-
-* `record` – vector record to add.
-
-### getAllRecords
-
-```java
-public List<VectorRecord> getAllRecords()
-```
-
-Returns all currently stored records.
-
-### size
-
-```java
-public int size()
-```
-
-Returns the number of records currently stored.
-
-### clear
-
-```java
-public void clear()
-```
-
-Removes all records from the vector store.
-
----
-
-## 9.3 Retriever
-
-**Package**
-
-```java
-com.offlineretriever.vector
-```
-
-`Retriever` performs similarity-based retrieval over records stored in a `VectorStore`.
-
-### Constructor
-
-```java
-public Retriever(VectorStore vectorStore)
-```
-
-Creates a retriever connected to the specified vector store.
-
-**Parameters**
-
-* `vectorStore` – source vector store used for retrieval.
-
-### search
-
-```java
-public List<SearchResult> search(float[] queryVector, int topK)
-```
-
-Searches the vector store using a query vector.
-
-Records are compared against the query vector and ranked according to cosine similarity.
-
-**Parameters**
-
-* `queryVector` – vector representing the search query.
-* `topK` – maximum number of results to return.
-
-**Returns**
-
-A ranked list of `SearchResult` objects.
-
----
-
-## 9.4 SearchResult
-
-**Package**
-
-```java
-com.offlineretriever.vector
-```
-
-`SearchResult` represents one result returned by the retrieval process.
-
-Each result contains the matching vector record and its calculated similarity score.
-
-### Constructor
-
-```java
-public SearchResult(VectorRecord record, double similarityScore)
-```
-
-**Parameters**
-
-* `record` – matching vector record.
-* `similarityScore` – calculated similarity score.
-
-### getRecord
-
-```java
-public VectorRecord getRecord()
-```
-
-Returns the matching vector record.
-
-### getSimilarityScore
-
-```java
-public double getSimilarityScore()
-```
-
-Returns the similarity score associated with the result.
-
-### toString
-
-```java
-public String toString()
-```
-
-Returns a readable representation of the search result.
-
----
-
-## 9.5 SimilarityCalculator
-
-**Package**
-
-```java
-com.offlineretriever.vector
-```
-
-`SimilarityCalculator` provides similarity calculation utilities used by the retrieval module.
-
-### cosineSimilarity
-
-```java
-public static double cosineSimilarity(float[] vectorA, float[] vectorB)
-```
-
-Calculates cosine similarity between two vectors.
-
-**Parameters**
-
-* `vectorA` – first vector.
-* `vectorB` – second vector.
-
-**Returns**
-
-The cosine similarity value between the two vectors.
-
-The method is used by the retrieval layer to determine how closely an indexed record matches a query representation.
-
----
-
-# 10. Application Entry Points
-
-## 10.1 App
-
-**Package**
-
-```java
-com.offlineretriever
-```
-
-`App` provides a basic backend application entry point.
-
-### main
-
-```java
-public static void main(String[] args)
-```
-
-Starts the application.
-
----
-
-## 10.2 PipelineDemo
-
-**Package**
-
-```java
-com.offlineretriever
-```
-
-`PipelineDemo` provides a demonstration entry point for the retrieval pipeline.
-
-### main
-
-```java
-public static void main(String[] args) throws IOException
-```
-
-Runs a demonstration of the backend retrieval workflow.
-
----
-
-## 10.3 BackendCli
-
-**Package**
-
-```java
-com.offlineretriever
-```
-
-`BackendCli` provides the command-line bridge used by the Flutter desktop application to invoke the Java retrieval backend.
-
-The backend is packaged as an executable JAR using Maven.
-
-### main
-
-```java
-public static void main(String[] args)
-```
-
-The command-line interface accepts:
-
-* A text search query
-* A `topK` result limit
-* One or more local file paths
-
-The supplied files are indexed through the retrieval pipeline. The query is then processed and the ranked results are written to standard output as JSON.
-
-A typical invocation follows the form:
+The local retrieval service listens on:
 
 ```text
-java -jar backend-1.0-SNAPSHOT.jar <query> <topK> <file1> [file2] ...
+http://127.0.0.1:8765
 ```
 
-The JSON retrieval output provides information required by the Flutter frontend, including:
-
-* File name
-* Original local file path
-* Similarity score
-
-The Flutter `RetrievalService` launches the packaged backend JAR as a local process, supplies the selected files and query as command-line arguments, reads the JSON response, and converts the response into frontend retrieval result objects.
-
-This provides an end-to-end local connection between the Flutter frontend and Java backend without requiring an external retrieval server.
+The system is designed for local execution and does not require a remote retrieval server during normal operation after the required models and dependencies are available locally.
 
 ---
 
-# 11. Flutter Integration
+# 2. Java Backend Entry Point
 
-## 11.1 RetrievalService
+## 2.1 BackendCli
 
-The Flutter frontend uses `RetrievalService` as the integration layer between the desktop user interface and the Java backend.
+**Package**
 
-The service performs the following operations:
+```java
+com.offlineretriever
+```
 
-1. Validates the user's search query.
-2. Collects paths for files imported into the local file library.
-3. Locates the packaged Java backend JAR.
-4. Starts the Java backend as a local process.
-5. Passes the query, `topK`, and file paths to `BackendCli`.
-6. Reads the backend JSON output.
-7. Converts returned JSON objects into `RetrievalResult` instances.
-8. Passes the ranked results to the search results interface.
+`BackendCli` is the main command-line bridge used by the desktop application and for local testing.
 
-Backend diagnostic output is separated from the JSON result data during response processing so that frontend JSON decoding remains reliable.
-
----
-
-## 11.2 RetrievalResult
-
-`RetrievalResult` is the Flutter-side representation of a backend search result.
-
-Each result contains:
-
-* `fileName`
-* `filePath`
-* `score`
-
-The `filePath` field allows the search results interface to locate and open the original local document.
-
----
-
-## 11.3 Local File Opening
-
-The Flutter results interface uses the returned local file path to open matching documents.
-
-Before opening a result, the application verifies that the file still exists.
-
-The `url_launcher` Flutter package is used to request that the operating system open the file with its associated external application.
-
-For example:
-
-* TXT files can be opened with the system text editor.
-* PDF files can be opened with the configured PDF viewer.
-* DOCX files can be opened with the configured document application.
-
----
-
-# 12. Typical End-to-End Workflow
-
-The current prototype supports the following end-to-end processing flow:
+The executable JAR accepts four main commands:
 
 ```text
-Local TXT / PDF / DOCX File
-        ↓
-Flutter File Library
-        ↓
-RetrievalService
-        ↓
-BackendCli
-        ↓
-RetrievalPipeline
-        ↓
-ParserFactory
-        ↓
-TextParser / DocumentParser
-        ↓
-TextEmbeddingEngine
-        ↓
-256-dimensional local vector
-        ↓
-VectorRecord
-        ↓
-VectorStore
-        ↓
-Retriever
-        ↓
-Cosine Similarity
-        ↓
-SearchResult
-        ↓
-JSON Response
-        ↓
-RetrievalResult
-        ↓
-Flutter Search Results
-        ↓
-Open Original Local File
+index
+search
+list
+delete
 ```
 
-At application level, `RetrievalPipeline` coordinates the major backend indexing and search operations.
+### Index Command
 
-`BackendCli` exposes these operations to the Flutter application, while `RetrievalService` manages the frontend-to-backend process invocation and response conversion.
+```text
+java -jar backend-1.0-SNAPSHOT.jar index <file1> [file2] ...
+```
 
-The complete retrieval workflow executes locally on the user's machine.
+Indexes one or more supported local files.
+
+Supported document types include:
+
+- TXT
+- PDF
+- DOCX
+
+Supported image types include:
+
+- PNG
+- JPG
+- JPEG
+
+Text files are parsed in Java and then forwarded to the local Python retrieval service.
+
+Images are forwarded directly to the image indexing endpoint.
+
+Example:
+
+```text
+java -jar backend-1.0-SNAPSHOT.jar index report.pdf notes.txt image.png
+```
+
+Example response:
+
+```json
+{
+  "indexed": [
+    "report.pdf",
+    "notes.txt",
+    "image.png"
+  ],
+  "skipped": []
+}
+```
+
+Files that do not exist, are unsupported, or cannot be parsed are added to the `skipped` list.
 
 ---
 
-# 13. Supported Formats
+### Search Command
 
-The current Flutter desktop prototype supports importing and retrieving the following file formats:
+```text
+java -jar backend-1.0-SNAPSHOT.jar search <query> <topK>
+```
 
-| File Extension | Parser | Current End-to-End Support |
+Performs semantic search across indexed text documents and images.
+
+Example:
+
+```text
+java -jar backend-1.0-SNAPSHOT.jar search "software engineering" 5
+```
+
+Example result structure:
+
+```json
+[
+  {
+    "id": "record-id",
+    "fileName": "example.txt",
+    "filePath": "C:\\example\\example.txt",
+    "fileType": "txt",
+    "contentType": "text",
+    "score": 0.42
+  }
+]
+```
+
+The final result score may represent:
+
+- BERT cosine similarity for text results
+- Calibrated MobileCLIP cosine similarity for image results
+
+---
+
+### List Command
+
+```text
+java -jar backend-1.0-SNAPSHOT.jar list
+```
+
+Returns indexed files stored in the local retrieval database.
+
+Chunked text documents are returned once at file level rather than once per chunk.
+
+---
+
+### Delete Command
+
+```text
+java -jar backend-1.0-SNAPSHOT.jar delete <id>
+```
+
+Deletes an indexed file from the local vector database.
+
+For chunked text documents, all associated chunk records are deleted using the original file identifier.
+
+---
+
+# 3. Local Retrieval Service
+
+The local retrieval service is implemented using FastAPI.
+
+Base address:
+
+```text
+http://127.0.0.1:8765
+```
+
+The main endpoints are:
+
+| Method | Endpoint | Purpose |
 |---|---|---|
-| `.txt` | `TextParser` | Yes |
-| `.pdf` | `DocumentParser` | Yes |
-| `.docx` | `DocumentParser` | Yes |
-| `.jpg` | `ImageParser` | Backend abstraction only |
-| `.jpeg` | `ImageParser` | Backend abstraction only |
-| `.png` | `ImageParser` | Backend abstraction only |
-
-Apache Tika is used by `DocumentParser` for document text extraction.
-
-Text-based PDF and DOCX documents can therefore participate in the current retrieval workflow.
-
-Image-only or scanned PDF documents may require OCR support, which is not part of the current prototype.
+| GET | `/health` | Check backend and model status |
+| GET | `/files` | List indexed files |
+| POST | `/index-text` | Index extracted text content |
+| POST | `/index-image` | Index a local image |
+| POST | `/search` | Perform multimodal semantic search |
+| POST | `/delete` | Delete an indexed file |
 
 ---
 
-# 14. Current Prototype Limitations
+# 4. GET /health
 
-The current implementation is a functional prototype and has several intentional limitations.
+Checks whether the local retrieval service is running and whether the main machine-learning components are loaded.
 
-* Text embeddings use a deterministic 256-dimensional hashing approach rather than a pretrained language model.
-* The current vector store is maintained in memory and is not persistent between backend process executions.
-* TXT, PDF, and DOCX are integrated into the current Flutter retrieval workflow.
-* Image parsing exists at the backend abstraction level but image-based retrieval is not yet integrated into the current desktop workflow.
-* OCR for scanned or image-only PDF documents is not currently implemented.
-* Retrieval quality is dependent on token overlap and the current lightweight vector representation.
-* File opening depends on the operating system having an associated application for the selected file type.
+## Request
 
-These limitations keep the current prototype lightweight while leaving clear extension points for later development.
+```http
+GET /health
+```
+
+## Response
+
+Example:
+
+```json
+{
+  "status": "ok",
+  "text_records": 1012,
+  "image_records": 2,
+  "bert_loaded": true,
+  "mobileclip_loaded": true
+}
+```
+
+## Response Fields
+
+### status
+
+Service status.
+
+Typical value:
+
+```text
+ok
+```
+
+### text_records
+
+Number of records currently stored in the text ChromaDB collection.
+
+Because long documents are chunked, this value represents vector records or chunks rather than strictly the number of source files.
+
+### image_records
+
+Number of indexed image records.
+
+### bert_loaded
+
+Indicates whether the BERT text embedding engine has loaded successfully.
+
+### mobileclip_loaded
+
+Indicates whether the MobileCLIP model has loaded successfully.
 
 ---
 
-# 15. Extension Points
+# 5. GET /files
 
-The modular API structure allows future implementations to extend the system without significantly changing the existing retrieval pipeline.
+Returns indexed files stored in the local vector database.
 
-Potential extensions include:
+## Request
 
-* Replacement of the current lightweight text embedding implementation with BERT or another local pretrained embedding model.
-* Integration of image embeddings such as MobileCLIP.
-* End-to-end image retrieval support.
-* OCR support for scanned documents.
-* Persistent local vector storage.
-* Additional parser implementations for new file formats.
-* Additional ranking and filtering strategies.
-* Additional metadata fields.
-* Improved multilingual retrieval.
-* Performance optimizations for larger local document libraries.
+```http
+GET /files
+```
 
-The use of interfaces, modular packages, separate data models, and the local frontend-backend bridge helps keep these future extensions isolated from the existing functionality.
+## Response
+
+Example:
+
+```json
+[
+  {
+    "id": "file-id",
+    "fileName": "report.pdf",
+    "filePath": "C:\\documents\\report.pdf",
+    "fileType": "pdf",
+    "fileSize": 296037,
+    "lastModified": 1782033288822.284,
+    "contentType": "text",
+    "chunkIndex": 0,
+    "chunkCount": 7,
+    "exists": true
+  }
+]
+```
+
+## Behaviour
+
+For text documents split into multiple chunks, the endpoint returns only one file-level result.
+
+The `exists` field is calculated at request time and indicates whether the original local file is still present.
+
+---
+
+# 6. POST /index-text
+
+Indexes textual content extracted from a TXT, PDF, or DOCX file.
+
+## Request
+
+```http
+POST /index-text
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "file_path": "C:\\documents\\report.pdf",
+  "content": "Extracted document text..."
+}
+```
+
+## Validation
+
+The endpoint verifies:
+
+- The file exists
+- The content is not empty
+- The file extension is supported
+
+Supported extensions:
+
+```text
+txt
+pdf
+docx
+```
+
+Unsupported files return HTTP 400.
+
+Missing files return HTTP 404.
+
+---
+
+## Long-Document Chunking
+
+Text is divided using the current configuration:
+
+```text
+CHUNK_SIZE = 400 words
+CHUNK_OVERLAP = 50 words
+```
+
+Each chunk is embedded independently.
+
+The chunk identifier format is:
+
+```text
+<file_id>_chunk_<index>
+```
+
+Each chunk stores metadata including:
+
+```text
+fileId
+chunkIndex
+chunkCount
+fileName
+filePath
+fileType
+fileSize
+lastModified
+contentType
+```
+
+## Response
+
+Example:
+
+```json
+{
+  "status": "ok",
+  "id": "file-id",
+  "contentType": "text",
+  "chunkCount": 7,
+  "dimension": 768
+}
+```
+
+The exact embedding dimension depends on the active BERT model.
+
+---
+
+# 7. POST /index-image
+
+Indexes a local image using MobileCLIP.
+
+## Request
+
+```http
+POST /index-image
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "file_path": "C:\\pictures\\example.png"
+}
+```
+
+## Supported Formats
+
+```text
+jpg
+jpeg
+png
+```
+
+## Processing
+
+The endpoint:
+
+1. Verifies the file exists
+2. Validates the extension
+3. Generates a MobileCLIP image embedding
+4. Builds file metadata
+5. Stores the embedding in the image ChromaDB collection
+
+## Response
+
+Example:
+
+```json
+{
+  "status": "ok",
+  "id": "file-id",
+  "contentType": "image",
+  "dimension": 512
+}
+```
+
+The exact embedding dimension depends on the active MobileCLIP model.
+
+---
+
+# 8. POST /search
+
+Performs semantic search across both text documents and images.
+
+## Request
+
+```http
+POST /search
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "query": "red image",
+  "top_k": 5
+}
+```
+
+## Validation
+
+Empty queries return HTTP 400.
+
+`top_k` is forced to a minimum value of 1.
+
+---
+
+## Text Search Flow
+
+The text search pipeline performs:
+
+1. BERT query embedding
+2. ChromaDB similarity search
+3. Retrieval of multiple chunk-level candidates
+4. File-level aggregation
+5. Selection of the highest-scoring chunk for each file
+
+The number of chunk candidates is calculated using:
+
+```text
+chunk_search_k = top_k × CHUNK_SEARCH_MULTIPLIER
+```
+
+Current value:
+
+```text
+CHUNK_SEARCH_MULTIPLIER = 5
+```
+
+---
+
+## Image Search Flow
+
+If image records exist:
+
+1. MobileCLIP converts the text query into an embedding
+2. The image ChromaDB collection is searched
+3. Image results are returned using cosine similarity
+4. Image scores are calibrated before fusion
+
+Current calibration:
+
+```text
+IMAGE_SCORE_CALIBRATION = 1.25
+```
+
+The final image score is:
+
+```text
+calibrated_score =
+raw_mobileclip_similarity × 1.25
+```
+
+---
+
+## Multimodal Fusion
+
+Text and image results are combined after:
+
+- Text chunk aggregation
+- Image score calibration
+
+The final combined list is sorted by descending score.
+
+The requested top-K results are then returned.
+
+## Response
+
+Example:
+
+```json
+[
+  {
+    "id": "image-id",
+    "recordId": "image-id",
+    "fileName": "red.png",
+    "filePath": "C:\\pictures\\red.png",
+    "fileType": "png",
+    "contentType": "image",
+    "chunkIndex": -1,
+    "rawScore": 0.31,
+    "score": 0.39
+  },
+  {
+    "id": "text-id",
+    "recordId": "text-id_chunk_0",
+    "fileName": "notes.txt",
+    "filePath": "C:\\documents\\notes.txt",
+    "fileType": "txt",
+    "contentType": "text",
+    "chunkIndex": 0,
+    "rawScore": 0.38,
+    "score": 0.38
+  }
+]
+```
+
+The Java bridge may expose only the fields required by the frontend.
+
+---
+
+# 9. POST /delete
+
+Deletes an indexed file.
+
+## Request
+
+```http
+POST /delete
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "id": "file-id"
+}
+```
+
+## Behaviour
+
+For text documents:
+
+```text
+all records where metadata.fileId == requested id
+```
+
+are removed.
+
+For images:
+
+```text
+the image record with the matching id
+```
+
+is removed.
+
+## Response
+
+```json
+{
+  "status": "ok",
+  "id": "file-id"
+}
+```
+
+---
+
+# 10. ChromaStore API
+
+The Python storage layer is implemented by:
+
+```python
+ChromaStore
+```
+
+The database path is:
+
+```text
+<project-root>/chroma_db
+```
+
+Two persistent collections are used:
+
+```text
+offline_retriever_text
+offline_retriever_images
+```
+
+Both collections use cosine similarity.
+
+---
+
+## 10.1 add_text_file
+
+```python
+add_text_file(
+    record_id: str,
+    embedding: list[float],
+    metadata: dict[str, Any],
+    document: str = "",
+) -> None
+```
+
+Stores or updates one text vector record.
+
+For chunked documents, each chunk uses a unique `record_id`.
+
+---
+
+## 10.2 add_image_file
+
+```python
+add_image_file(
+    file_id: str,
+    embedding: list[float],
+    metadata: dict[str, Any],
+) -> None
+```
+
+Stores or updates one image vector record.
+
+---
+
+## 10.3 search_text
+
+```python
+search_text(
+    query_embedding: list[float],
+    top_k: int = 5,
+) -> dict
+```
+
+Queries the text ChromaDB collection.
+
+Returns:
+
+```text
+ids
+metadatas
+distances
+```
+
+---
+
+## 10.4 search_images
+
+```python
+search_images(
+    query_embedding: list[float],
+    top_k: int = 5,
+) -> dict
+```
+
+Queries the image collection using an embedding generated from the text query.
+
+---
+
+## 10.5 delete_file
+
+```python
+delete_file(
+    file_id: str,
+) -> None
+```
+
+Deletes all text chunks associated with the supplied file ID and also attempts to delete a matching image record.
+
+---
+
+## 10.6 get_all_files
+
+```python
+get_all_files() -> list[dict]
+```
+
+Returns indexed files.
+
+Text chunks are deduplicated using the original file ID so that one source document appears once.
+
+---
+
+## 10.7 text_count
+
+```python
+text_count() -> int
+```
+
+Returns the number of text vector records stored in ChromaDB.
+
+This may exceed the number of text files because one long document may contain multiple chunks.
+
+---
+
+## 10.8 image_count
+
+```python
+image_count() -> int
+```
+
+Returns the number of indexed image records.
+
+---
+
+# 11. BERT Text Embedding API
+
+The current main text retrieval pipeline uses the Python BERT embedding engine.
+
+Typical operation:
+
+```python
+embedding = text_engine.embed(text)
+```
+
+The output is a numerical embedding suitable for cosine-similarity retrieval.
+
+The same model is used for:
+
+- Document chunks
+- Search queries
+
+This ensures documents and text queries are represented in a compatible semantic space.
+
+---
+
+# 12. MobileCLIP API
+
+The image retrieval pipeline uses MobileCLIP.
+
+## Image Embedding
+
+```python
+image_engine.embed_image(file_path)
+```
+
+Generates an image embedding.
+
+## Text Embedding
+
+```python
+image_engine.embed_text(query)
+```
+
+Generates a text embedding in the MobileCLIP multimodal embedding space.
+
+This allows natural-language text queries to retrieve semantically related images.
+
+---
+
+# 13. Java Parsing APIs
+
+The Java parsing layer is still responsible for local text extraction.
+
+## Parser
+
+```java
+String parse(String filePath);
+```
+
+Provides a shared abstraction for parser implementations.
+
+---
+
+## TextParser
+
+Handles:
+
+```text
+.txt
+```
+
+and returns textual content.
+
+---
+
+## DocumentParser
+
+Handles:
+
+```text
+.pdf
+.docx
+```
+
+and extracts text from supported documents.
+
+---
+
+## ParserFactory
+
+Typical mappings include:
+
+| Extension | Processing |
+|---|---|
+| `.txt` | TextParser |
+| `.pdf` | DocumentParser |
+| `.docx` | DocumentParser |
+| `.jpg` | Image indexing route |
+| `.jpeg` | Image indexing route |
+| `.png` | Image indexing route |
+
+Image files are routed to MobileCLIP-based indexing instead of BERT text parsing in the current main indexing flow.
+
+---
+
+# 14. File Metadata
+
+Indexed file metadata contains fields including:
+
+```text
+fileName
+filePath
+fileType
+fileSize
+lastModified
+contentType
+```
+
+Chunked text records additionally include:
+
+```text
+fileId
+chunkIndex
+chunkCount
+```
+
+This metadata is used for:
+
+- Displaying result information
+- Opening local files
+- File-level aggregation
+- Deleting all chunks belonging to a document
+- Checking whether indexed files still exist
+
+---
+
+# 15. File Identifier Generation
+
+The retrieval service creates deterministic file identifiers using:
+
+```text
+SHA-256(normalized absolute file path)
+```
+
+Conceptually:
+
+```python
+normalized_path = resolved_path.lower()
+file_id = sha256(normalized_path)
+```
+
+This provides a stable local identifier for a given path.
+
+Chunk identifiers are generated using:
+
+```text
+<file_id>_chunk_<chunk_index>
+```
+
+---
+
+# 16. Similarity Scoring
+
+Both ChromaDB collections use cosine space.
+
+The returned ChromaDB distance is converted to similarity using:
+
+```text
+similarity = 1.0 - distance
+```
+
+For text:
+
+```text
+final score = raw BERT similarity
+```
+
+For images:
+
+```text
+final score =
+raw MobileCLIP similarity × 1.25
+```
+
+Negative similarity values are valid and indicate low semantic similarity.
+
+---
+
+# 17. Error Handling
+
+The retrieval API may return errors including:
+
+### HTTP 400
+
+Examples:
+
+```text
+Text content is empty.
+Unsupported text file type.
+Unsupported image file type.
+Query cannot be empty.
+No text chunks were generated.
+```
+
+### HTTP 404
+
+Example:
+
+```text
+File not found.
+```
+
+Java-side failures are reported through stderr and a non-zero process exit code.
+
+---
+
+# 18. Persistence Behaviour
+
+ChromaDB uses persistent local storage.
+
+The database remains available between service restarts.
+
+The local database directory is excluded from source control because indexed vectors are runtime data rather than source code.
+
+Downloaded local model directories are also excluded from Git source control.
+
+---
+
+# 19. Current Retrieval Configuration
+
+Important current parameters include:
+
+```text
+CHUNK_SIZE = 400
+CHUNK_OVERLAP = 50
+CHUNK_SEARCH_MULTIPLIER = 5
+IMAGE_SCORE_CALIBRATION = 1.25
+```
+
+Changing these values can affect:
+
+- Number of stored vectors
+- Indexing time
+- Search recall
+- Chunk boundary behaviour
+- Multimodal ranking
+
+Changes should therefore be validated before release.
+
+---
+
+# 20. Performance Validation
+
+The retrieval system was tested with 1,000 generated TXT files.
+
+Observed results included:
+
+```text
+Text records before test: 12
+Text records after test: 1012
+Stress-test files listed: 1000
+```
+
+Measured indexing times included:
+
+| Batch | Time |
+|---:|---:|
+| 200 files | 14.81 s |
+| 300 files | 25.94 s |
+| 450 files | 41.72 s |
+
+The initial 50-file batch was used as a functional validation batch and was not timed.
+
+An end-to-end semantic search over more than 1,000 text records completed in approximately:
+
+```text
+807 ms
+```
+
+for the query:
+
+```text
+software engineering
+```
+
+This timing includes Java CLI execution, HTTP communication, query embedding, vector search, multimodal processing, ranking, and output handling.
+
+---
+
+# 21. Deprecated Prototype Components
+
+Some Java classes from earlier development stages remain useful for unit testing, demonstration, or modular experimentation.
+
+Examples include:
+
+```text
+VectorStore
+Retriever
+SimilarityCalculator
+TextEmbeddingEngine
+RetrievalPipeline
+```
+
+Earlier versions used:
+
+- Deterministic token hashing
+- In-memory vector storage
+- Java-only similarity search
+
+These are no longer the primary production retrieval path.
+
+The current main retrieval path is:
+
+```text
+Flutter
+  ↓
+Java BackendCli
+  ↓
+Local FastAPI Service
+  ↓
+BERT / MobileCLIP
+  ↓
+ChromaDB
+```
+
+Documentation and final deployment should therefore describe the Python/ChromaDB retrieval service as the main implementation.
+
+---
+
+# 22. Summary
+
+The current system exposes a complete local multimodal retrieval API.
+
+The main functional flow includes:
+
+- Java-based local file parsing
+- FastAPI-based retrieval service
+- BERT text embeddings
+- MobileCLIP image retrieval
+- Long-document chunking
+- ChromaDB persistent storage
+- File-level result aggregation
+- Calibrated multimodal ranking
+- Local indexing, listing, searching, and deletion
+
+The API remains fully local during normal operation and is designed to support the final desktop application workflow.

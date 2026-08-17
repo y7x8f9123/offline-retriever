@@ -2,66 +2,95 @@
 
 ## Offline Accessible Multimodal Local Content Retrieval System
 
-**Platform:** Flutter Windows Desktop  
 **Version:** Week 7 Prototype  
+**Primary Tested Platform:** Windows Desktop  
 **Date:** 2026-08
 
 ---
 
 ## 1. Introduction
 
-The Offline Accessible Multimodal Local Content Retrieval System is designed to help users search and retrieve information from local files while keeping file processing on the local device.
+The Offline Accessible Multimodal Local Content Retrieval System is designed to help users search local documents and images using semantic search while keeping normal retrieval processing on the local computer.
 
-The application combines a Flutter-based desktop user interface with a Java-based local retrieval backend.
+The current application combines:
+
+- Flutter desktop user interface
+- Java local backend
+- Local FastAPI retrieval service
+- BERT text embeddings
+- MobileCLIP image embeddings
+- ChromaDB persistent vector storage
 
 The current prototype supports:
 
-- Importing local TXT, PDF, and DOCX files
-- Searching imported documents using text queries
-- English and Chinese text retrieval
-- Similarity-based result ranking
-- Opening retrieved files with the operating system's default application
-- Keyboard-only navigation
+- TXT document indexing
+- PDF document indexing
+- DOCX document indexing
+- JPG image indexing
+- JPEG image indexing
+- PNG image indexing
+- Semantic text search
+- Text-to-image semantic search
+- Long-document retrieval
+- Persistent local indexing
+- Ranked multimodal search results
+- Opening original local files
+- Keyboard navigation
 - High Contrast Mode
 - Dynamic Font Scaling
-- Semantic labels for accessibility support
+- Semantic accessibility labels
 
-The application is designed around three major principles:
+The application follows three main principles:
 
 - Offline-first local processing
-- Simple local content retrieval
+- Multimodal semantic retrieval
 - Accessible user interaction
-
-This manual explains how to prepare, launch, and use the current Week 7 prototype.
 
 ---
 
-## 2. System Requirements
+## 2. Supported File Types
 
-The current development prototype is designed for Windows desktop.
+The current retrieval workflow supports:
 
-For development or source-based execution, the following software is required:
+| Content Type | Formats |
+|---|---|
+| Text documents | TXT, PDF, DOCX |
+| Images | JPG, JPEG, PNG |
+
+Text-based PDF and DOCX files are processed by extracting their textual content.
+
+Scanned or image-only PDFs may not be searchable if they contain no extractable text because OCR is not currently implemented.
+
+---
+
+## 3. System Requirements
+
+The current prototype has been developed and functionally validated primarily on Windows.
+
+For source-based execution, the following software is required:
 
 - Windows operating system
 - Flutter SDK
-- Java Development Kit (JDK)
+- Java Development Kit
 - Maven
-- Git
+- Python
+- Required Python machine-learning packages
+- Required BERT and MobileCLIP model resources
+- Git, if cloning the repository
 
-The project should be stored locally before running the application.
-
-The user should also have appropriate desktop applications installed for opening imported documents, such as a PDF viewer or a DOCX-compatible application.
+Users should also have appropriate desktop applications installed for opening local files such as PDF, DOCX, TXT, JPG, and PNG files.
 
 ---
 
-## 3. Project Structure
+## 4. Project Structure
 
-The main project contains separate backend, frontend, model, documentation, and supporting directories.
+The main project structure includes:
 
 ```text
 shixi/
 ├── assets/
 ├── backend/
+├── chroma_db/
 ├── dataset/
 ├── docs/
 ├── frontend/
@@ -72,66 +101,83 @@ shixi/
 └── README.md
 ```
 
-The two main application components are:
+The main runtime components are:
 
-- `backend/` – Java-based local parsing, embedding, vector storage, and retrieval logic.
-- `frontend/` – Flutter Windows desktop user interface.
+```text
+frontend/
+```
 
-The Flutter frontend communicates with the Java backend locally through a packaged executable JAR.
+Flutter user interface.
+
+```text
+backend/
+```
+
+Java file-processing and application backend.
+
+```text
+scripts/
+```
+
+Python retrieval service, embedding models, and ChromaDB integration.
+
+```text
+chroma_db/
+```
+
+Persistent local vector database generated during runtime.
 
 ---
 
-## 4. Installation and Setup
+## 5. Preparing the Application
 
-### 4.1 Obtain the Project
+### 5.1 Obtain the Project
 
-Clone or download the project repository to the local computer.
+Clone or download the repository to the local computer.
 
-If Git is being used, clone the repository and open the project directory in a development environment such as Visual Studio Code.
+Open the project directory in a development environment such as Visual Studio Code.
 
 ---
 
-### 4.2 Verify Flutter
+## 5.2 Check Flutter
 
-Check the Flutter development environment:
+Run:
 
-```bash
+```powershell
 flutter doctor
 ```
 
-Resolve any required Flutter or Windows desktop development issues reported by the command before continuing.
+Resolve any required Flutter desktop-development issues before continuing.
 
 ---
 
-### 4.3 Install Flutter Dependencies
+## 5.3 Install Flutter Dependencies
 
-Navigate to the frontend directory:
+Navigate to:
 
-```bash
+```powershell
 cd frontend
 ```
 
-Install the required Flutter dependencies:
+Run:
 
-```bash
+```powershell
 flutter pub get
 ```
 
-The current prototype uses Flutter packages including `file_picker` for selecting local files and `url_launcher` for opening retrieved files.
-
 ---
 
-### 4.4 Prepare the Backend
+## 5.4 Build the Java Backend
 
-Navigate to the backend directory:
+From the project root:
 
-```bash
+```powershell
 cd backend
 ```
 
-Run the backend test suite:
+Run tests:
 
-```bash
+```powershell
 mvn test
 ```
 
@@ -141,467 +187,730 @@ A successful test run should finish with:
 BUILD SUCCESS
 ```
 
-Package the backend as an executable JAR:
+Build the executable JAR:
 
-```bash
+```powershell
 mvn clean package -DskipTests
 ```
 
-The packaged backend should be created under:
+The expected output is:
 
 ```text
 backend/target/backend-1.0-SNAPSHOT.jar
 ```
 
-The Flutter frontend expects this JAR to exist when a search is performed.
+Return to the project root when finished.
 
 ---
 
-## 5. Running the Application
+## 6. Starting the Local Retrieval Service
 
-### 5.1 Run the Flutter Interface
+The semantic retrieval service must be running before normal indexing and searching.
+
+From the project root, run:
+
+```powershell
+python scripts\service\retrieval_server.py
+```
+
+During startup, the system initializes:
+
+1. ChromaDB
+2. BERT
+3. MobileCLIP
+
+Typical startup output includes:
+
+```text
+Starting Offline Retriever backend...
+Opening ChromaDB...
+Loading BERT...
+Loading MobileCLIP...
+Offline Retriever backend ready.
+```
+
+The model-loading stage may take several seconds.
+
+When ready, the console should show:
+
+```text
+Uvicorn running on http://127.0.0.1:8765
+```
+
+Keep this terminal running while using the retrieval system.
+
+---
+
+## 7. Verifying the Retrieval Service
+
+Open another PowerShell terminal.
+
+Run:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/health
+```
+
+A healthy service returns information similar to:
+
+```text
+status            : ok
+text_records      : 12
+image_records     : 2
+bert_loaded       : True
+mobileclip_loaded : True
+```
+
+Before continuing, verify:
+
+```text
+status = ok
+bert_loaded = True
+mobileclip_loaded = True
+```
+
+---
+
+## 8. Running the Flutter Application
 
 Navigate to the frontend directory:
 
-```bash
+```powershell
 cd frontend
 ```
 
-Run the Windows desktop application:
+Run:
 
-```bash
+```powershell
 flutter run -d windows
 ```
 
-The application window should open after the Flutter build completes.
+After Flutter finishes building, the desktop application window should open.
 
 ---
 
-### 5.2 Backend Operation
+## 9. Main User Workflow
 
-The Java backend does not need to be started manually as a separate server.
+The normal workflow is:
 
-When the user performs a search, the Flutter application starts the packaged backend JAR as a local process.
-
-The frontend provides:
-
-- The search query
-- The maximum number of results
-- The paths of imported local files
-
-The backend indexes the supplied files, performs similarity retrieval, and returns ranked results to Flutter as JSON.
-
-All of these operations occur locally.
-
----
-
-### 5.3 Backend Verification
-
-The backend can be tested independently from the backend directory using:
-
-```bash
-mvn test
-```
-
-The project also contains backend entry points used for development and retrieval verification.
-
----
-
-## 6. Main Application Interface
-
-The current Flutter prototype provides several main application sections.
-
-The normal user workflow is:
-
-1. Open the application.
-2. Open the File Library.
-3. Import one or more supported local documents.
-4. Open the Search page.
-5. Enter a search query.
+1. Start the local retrieval service.
+2. Launch the Flutter application.
+3. Import or select supported local files.
+4. Index the files.
+5. Enter a semantic search query.
 6. Start the search.
-7. Review the ranked results.
-8. Open a matching document if required.
-9. Adjust accessibility settings when required.
-
-The interface is designed to keep the workflow simple and reduce unnecessary interaction steps.
+7. Review ranked text and image results.
+8. Open a matching local file when required.
+9. Use accessibility settings when needed.
 
 ---
 
-## 7. Importing Local Files
+## 10. Importing Local Files
 
-### 7.1 Open the File Library
-
-Navigate to the **File Library** page.
-
-The page displays the local files currently imported into the application.
-
----
-
-### 7.2 Import Files
+Open the File Library or file-import interface.
 
 Select:
 
-**Import Files**
+```text
+Import Files
+```
 
-The Windows file-selection interface will open.
+Choose one or more supported files.
 
-The current Flutter prototype supports:
-
-- TXT
-- PDF
-- DOCX
-
-Multiple files can be selected during one import operation.
-
-After importing files, they appear in the local file library.
-
----
-
-### 7.3 File Information
-
-Each imported file is displayed with information including:
-
-- File name
-- File type
-- File size
-- File-type icon
-
-The interface distinguishes between:
-
-- Text documents
-- PDF documents
-- Word documents
-
----
-
-### 7.4 Removing Files
-
-An imported file can be removed from the application library using the remove control displayed beside the file.
-
-Removing a file from the application library does not delete the original document from the user's computer.
-
----
-
-## 8. Searching for Local Content
-
-### 8.1 Open the Search Page
-
-Navigate to the **Search** page after importing one or more files.
-
----
-
-### 8.2 Enter a Query
-
-Select the search input field and enter text describing the content you want to find.
-
-Queries can contain English or Chinese text.
-
-Examples include:
+Supported formats include:
 
 ```text
-offline retrieval
+.txt
+.pdf
+.docx
+.jpg
+.jpeg
+.png
+```
+
+Multiple files may be selected during one import operation where supported by the interface.
+
+The original local files are not copied into the application database.
+
+The application stores metadata and semantic vector representations while preserving the original file path.
+
+---
+
+## 11. Text Document Indexing
+
+TXT, PDF, and DOCX files are processed as text documents.
+
+The indexing workflow is:
+
+```text
+Local Document
+      ↓
+Java Parser
+      ↓
+Extracted Text
+      ↓
+Long-Document Chunking
+      ↓
+BERT Embeddings
+      ↓
+ChromaDB
+```
+
+TXT files are read directly as text.
+
+PDF and DOCX documents are parsed before semantic indexing.
+
+---
+
+## 12. Long-Document Processing
+
+Long documents are automatically divided into smaller overlapping sections before indexing.
+
+Current configuration:
+
+```text
+Chunk size: 400 words
+Chunk overlap: 50 words
+```
+
+This allows information later in a long PDF, DOCX, or TXT document to participate in semantic retrieval.
+
+Users do not need to manually divide long documents.
+
+Although one document may create multiple internal vector records, it is displayed as one source file in normal search results.
+
+---
+
+## 13. Image Indexing
+
+JPG, JPEG, and PNG files use the MobileCLIP image pipeline.
+
+The workflow is:
+
+```text
+Local Image
+     ↓
+MobileCLIP
+     ↓
+Image Embedding
+     ↓
+ChromaDB
+```
+
+The image does not need to contain text.
+
+MobileCLIP creates a semantic representation of the visual content.
+
+This allows users to search for images using text queries such as:
+
+```text
+red
 ```
 
 or:
 
 ```text
-甲方
+dog
 ```
 
----
-
-### 8.3 Start the Search
-
-Select the **Search** button or submit the query using the keyboard.
-
-The Flutter application passes the query and imported file paths to the local Java backend.
-
-The backend then:
-
-1. Selects the appropriate parser for each file.
-2. Extracts textual content.
-3. Generates local vector representations.
-4. Compares the query against the imported documents.
-5. Calculates similarity scores.
-6. Ranks the matching documents.
-7. Returns the results to the Flutter interface.
+depending on the indexed image content.
 
 ---
 
-### 8.4 Supported Document Parsing
+## 14. Performing a Search
 
-TXT files are processed using the text parser.
+Open the Search page.
 
-PDF and DOCX documents are processed using the document parser, which uses Apache Tika for text extraction.
+Enter a text query describing the information or visual content you want to retrieve.
 
-Text-based English and Chinese documents can participate in the current retrieval workflow.
+Examples:
 
-Scanned or image-only PDF documents may not contain directly extractable text and are not currently supported through OCR.
+```text
+software engineering
+```
+
+```text
+database
+```
+
+```text
+red
+```
+
+```text
+dog
+```
+
+The query is processed by both retrieval paths where applicable:
+
+```text
+Query
+ ├── BERT → Text Search
+ └── MobileCLIP → Image Search
+```
+
+The results are then combined and ranked.
 
 ---
 
-### 8.5 Empty Queries
+## 15. Empty Queries
 
-A search should contain meaningful text.
+The search query must contain meaningful text.
 
-If the Search control is activated without a valid query, the interface displays:
+If the user attempts to search without entering a query, the application prevents the search and displays an appropriate message such as:
 
 ```text
 Please enter a search query.
 ```
 
-The empty search is not sent to the backend.
-
 ---
 
-### 8.6 No Imported Files
+## 16. Semantic Search
 
-At least one supported local file must be imported before a useful retrieval operation can be performed.
+The system performs semantic retrieval rather than only exact keyword matching.
 
-If no local files are available, the search service cannot perform document retrieval.
-
----
-
-## 9. Search Results
-
-Search results are displayed on the **Search Results** page.
-
-The page displays:
-
-- The submitted query
-- Number of matching files
-- Ranked search results
-- File name
-- File type
-- Similarity score
-- Ranking position
-- Open button
-
-For example:
+For text documents:
 
 ```text
-document.pdf
-PDF document    Similarity: 0.4210
-#1    Open
+Query
+  ↓
+BERT
+  ↓
+Semantic Vector
+  ↓
+ChromaDB Search
 ```
 
-Higher similarity generally indicates greater overlap between the current query representation and the indexed document representation.
+For images:
 
-The current similarity score should be interpreted as a retrieval ranking signal rather than a probability or percentage.
+```text
+Text Query
+   ↓
+MobileCLIP
+   ↓
+Multimodal Vector
+   ↓
+Image Search
+```
 
----
-
-## 10. Opening Search Results
-
-Each search result provides an **Open** button.
-
-When the button is activated, the application checks whether the original local file still exists.
-
-If the file exists, Windows opens it using the system's associated application.
-
-For example:
-
-- TXT files may open in the configured text editor.
-- PDF files may open in the configured PDF viewer.
-- DOCX files may open in the configured document application.
-
-The application uses the original local file path returned by the retrieval backend.
-
-If the file has been moved, renamed, or deleted after being imported, the application may display a file-not-found message.
+This allows related content to be retrieved even when the exact search phrase does not appear literally in the source content.
 
 ---
 
-# 11. Accessibility Guide
+## 17. Multimodal Ranking
 
-Accessibility is a core design requirement of the application.
+Text and image results are produced by different machine-learning models.
 
-The current prototype provides:
+Because the similarity scores generated by BERT and MobileCLIP are not naturally identical in scale, image scores are calibrated before the final ranking.
+
+The system then returns one combined result list containing both:
+
+```text
+text
+image
+```
+
+content types.
+
+Users do not need to manually select separate text-search and image-search modes.
+
+---
+
+## 18. Search Results
+
+Search results may display information such as:
+
+- File name
+- File type
+- Content type
+- Similarity score
+- Ranking position
+- Open control
+
+A result may represent:
+
+```text
+TXT document
+PDF document
+DOCX document
+JPG image
+JPEG image
+PNG image
+```
+
+Higher similarity normally indicates that the content is more semantically related to the query.
+
+The similarity score is a ranking signal and should not be interpreted as a probability or confidence percentage.
+
+---
+
+## 19. Opening a Search Result
+
+Select:
+
+```text
+Open
+```
+
+for the desired result.
+
+The application uses the stored original local file path.
+
+If the file still exists, it is opened using the operating system's associated application.
+
+Examples:
+
+- TXT → configured text editor
+- PDF → PDF viewer
+- DOCX → Word-compatible application
+- JPG/PNG → image viewer
+
+---
+
+## 20. Missing Local Files
+
+The vector database does not contain a full copy of the source file.
+
+If the original file has been:
+
+- Deleted
+- Moved
+- Renamed
+
+the indexed record may still exist, but opening the original file may fail.
+
+The system checks whether indexed file paths still exist locally.
+
+---
+
+## 21. Persistent Local Index
+
+Indexed semantic vectors are stored in ChromaDB.
+
+This means the database can remain available across retrieval-service restarts.
+
+The user does not necessarily need to recreate the entire vector database every time the service starts.
+
+The database is stored locally under:
+
+```text
+chroma_db/
+```
+
+---
+
+## 22. Removing Indexed Files
+
+Indexed files can be removed from the retrieval database.
+
+For long text documents, all internal chunks associated with the selected source file are deleted together.
+
+Deleting an indexed record does not delete the original local document or image from the computer.
+
+---
+
+# Accessibility Guide
+
+## 23. Accessibility Overview
+
+Accessibility is a core project requirement.
+
+The current interface includes support for:
 
 - Keyboard-only navigation
 - High Contrast Mode
 - Dynamic Font Scaling
-- Semantic labels for screen readers
+- Semantic labels
+- Accessible feedback and navigation
+
+The project is designed around WCAG 2.1 AA principles where applicable.
 
 ---
 
-## 12. Keyboard Navigation
+## 24. Keyboard Navigation
 
-The application supports keyboard-only operation.
+Users can operate important interface controls using the keyboard.
 
-Available keyboard controls include:
+Common controls include:
 
-- **Tab** – Move to the next control.
-- **Shift + Tab** – Move to the previous control.
-- **Enter** – Activate the selected control.
-- **Space** – Activate buttons and switches.
+```text
+Tab
+```
 
-This allows users to navigate important application controls without relying entirely on a mouse or touch input.
+Move to the next interactive control.
+
+```text
+Shift + Tab
+```
+
+Move to the previous control.
+
+```text
+Enter
+```
+
+Activate the selected control.
+
+```text
+Space
+```
+
+Activate compatible buttons or switches.
+
+This allows important application functions to be used without relying entirely on a mouse.
 
 ---
 
-## 13. High Contrast Mode
+## 25. High Contrast Mode
 
-High Contrast Mode increases the visual contrast between foreground and background elements to improve readability.
+High Contrast Mode improves the visual separation between foreground and background elements.
 
-To enable High Contrast Mode:
+To enable it:
 
-1. Open the **Settings** page.
-2. Turn on the **High Contrast Mode** switch.
-3. The application theme updates immediately.
+1. Open Settings.
+2. Locate High Contrast Mode.
+3. Enable the switch.
 
-To return to the normal appearance, disable the same switch.
+The interface updates immediately.
+
+Disable the same option to return to the normal appearance.
 
 ---
 
-## 14. Font Size Adjustment
+## 26. Font Size Adjustment
 
-The application provides four predefined font size levels:
+The application supports multiple text-size levels.
+
+Available sizes include:
 
 - Small
 - Medium
 - Large
 - Extra Large
 
-To adjust the interface font size:
+To change the font size:
 
-1. Open the **Settings** page.
-2. Locate the **Font Size** control.
-3. Move the font-size slider.
-4. Select the preferred size.
+1. Open Settings.
+2. Locate the Font Size control.
+3. Select the preferred size.
 
-The interface updates immediately without requiring an application restart.
+The interface updates without requiring an application restart.
 
 ---
 
-## 15. Screen Reader Support
+## 27. Semantic Labels
 
-Important user-interface elements include semantic labels designed to improve compatibility with assistive technologies.
+Important interface elements contain semantic information to improve compatibility with assistive technologies.
 
-Semantic information is provided for important elements such as:
+Semantic labels are used for important controls including:
 
-- Navigation buttons
-- Search controls
-- File-import controls
-- Search-result controls
+- Navigation
+- File import
+- Search
+- Search results
+- File opening
 - Accessibility settings
-- Main application sections
 
-Semantic labeling provides additional context about interface elements to users who rely on assistive technologies.
-
----
-
-## 16. Accessibility Usage Recommendations
-
-Users who prefer keyboard navigation can use `Tab` and `Shift + Tab` to move through interactive controls and use `Enter` or `Space` to activate them.
-
-Users who require stronger visual separation between interface elements can enable High Contrast Mode.
-
-Users who require larger interface text can select Large or Extra Large through the font-size setting.
-
-These features can be used independently or together depending on individual accessibility requirements.
+These labels provide additional context for screen-reader and accessibility-tool users.
 
 ---
 
-## 17. Offline and Privacy Design
+## 28. Accessibility Recommendations
 
-The application follows an offline-first design.
-
-The current retrieval workflow runs locally:
+Users who prefer keyboard interaction can navigate using:
 
 ```text
-Local Files
-    ↓
-Flutter Desktop Application
-    ↓
-Local Java Backend
-    ↓
-Local Retrieval
-    ↓
-Flutter Search Results
+Tab
+Shift + Tab
+Enter
+Space
 ```
 
-Local file processing and retrieval do not require user document content or search queries to be uploaded to an external retrieval service.
+Users who require stronger visual contrast can enable:
 
-This design provides several benefits:
+```text
+High Contrast Mode
+```
 
-- Local content remains on the user's device.
-- Retrieval can operate without continuous internet connectivity.
-- Local processing reduces dependence on external services.
-- Sensitive local documents are not intentionally transmitted to remote retrieval services.
+Users who require larger text can select:
 
-The current frontend-backend connection uses a local Java process rather than a remote server.
+```text
+Large
+Extra Large
+```
 
-Users should still follow normal device-security practices when storing sensitive files locally.
+These settings may be used individually or together.
 
 ---
 
-## 18. Troubleshooting
+# Offline and Privacy
 
-### Flutter Application Does Not Start
+## 29. Offline-First Operation
+
+Normal retrieval processing takes place locally.
+
+The system performs locally:
+
+- File parsing
+- Text extraction
+- BERT inference
+- MobileCLIP inference
+- Vector storage
+- Semantic search
+- Result ranking
+
+The retrieval service uses:
+
+```text
+127.0.0.1:8765
+```
+
+which is the local loopback interface.
+
+---
+
+## 30. Internet Requirements
+
+Initial setup may require Internet access for:
+
+- Installing dependencies
+- Downloading BERT model resources
+- Downloading MobileCLIP model resources
+
+Once the required dependencies and model resources are installed locally, normal retrieval is designed to operate without Internet access.
+
+---
+
+## 31. Privacy
+
+During normal local retrieval:
+
+- User files remain on the local machine.
+- Extracted document text is processed locally.
+- Search queries are processed locally.
+- Vector embeddings are stored locally.
+- No cloud semantic-search API is required.
+
+Users should still follow normal computer-security practices when storing sensitive files.
+
+---
+
+# Troubleshooting
+
+## 32. Retrieval Service Does Not Start
 
 Run:
 
-```bash
-flutter doctor
+```powershell
+python scripts\service\retrieval_server.py
 ```
 
-Check for missing Flutter or Windows desktop development components.
+Check the first reported error.
 
-Then run:
+Common causes include:
 
-```bash
-flutter pub get
-```
-
-before trying to launch the application again.
+- Missing Python package
+- Missing model resource
+- Python environment problem
+- ChromaDB dependency problem
 
 ---
 
-### Backend JAR Is Missing
+## 33. Retrieval Service Appears Frozen
 
-If searching reports that the backend JAR cannot be found, navigate to the backend directory and run:
+The service may appear inactive while loading BERT or MobileCLIP.
 
-```bash
+Wait for:
+
+```text
+Offline Retriever backend ready.
+```
+
+and:
+
+```text
+Uvicorn running on http://127.0.0.1:8765
+```
+
+Then check:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/health
+```
+
+---
+
+## 34. Cannot Connect to Backend
+
+If the application cannot connect to:
+
+```text
+127.0.0.1:8765
+```
+
+verify that the Python retrieval service is running.
+
+Run:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/health
+```
+
+If this fails, restart the retrieval service.
+
+---
+
+## 35. Java Backend JAR Is Missing
+
+Build it using:
+
+```powershell
+cd backend
 mvn clean package -DskipTests
 ```
 
-Confirm that the following file exists:
+Confirm that this file exists:
 
 ```text
 backend/target/backend-1.0-SNAPSHOT.jar
 ```
 
-Then restart or retry the Flutter application.
-
 ---
 
-### Backend Tests Fail
+## 36. Java Changes Are Not Taking Effect
 
-From the backend directory, run:
+After changing Java source code, rebuild the JAR.
 
-```bash
-mvn test
+Run:
+
+```powershell
+cd backend
+mvn clean package -DskipTests
 ```
 
-Review the first reported test or compilation failure.
+Then retry the operation.
 
 ---
 
-### Flutter Tests Fail
+## 37. Python Changes Are Not Taking Effect
 
-From the frontend directory, run:
+Stop the running Python retrieval service.
 
-```bash
-flutter test
+Restart it using:
+
+```powershell
+python scripts\service\retrieval_server.py
 ```
 
-Review the first reported widget or compilation failure.
+The running Python process may still contain the previous code until restarted.
 
 ---
 
-### Files Cannot Be Imported
+## 38. A File Cannot Be Indexed
 
-Confirm that the selected document uses one of the currently supported extensions:
+Verify that its extension is supported.
+
+Supported text formats:
 
 ```text
 .txt
@@ -609,111 +918,160 @@ Confirm that the selected document uses one of the currently supported extension
 .docx
 ```
 
----
+Supported image formats:
 
-### PDF Content Cannot Be Found
+```text
+.jpg
+.jpeg
+.png
+```
 
-The current document parser extracts text from text-based PDF files.
-
-If the PDF contains only scanned page images, text extraction may not succeed because OCR is not currently implemented.
-
----
-
-### Search Cannot Be Started
-
-Check that:
-
-- At least one supported file has been imported.
-- The search field contains a valid text query.
-- The packaged backend JAR exists.
-
-Empty queries are rejected by the interface.
+Also verify that the file still exists at the selected location.
 
 ---
 
-### Search Result Cannot Be Opened
+## 39. PDF Text Cannot Be Retrieved
 
-Confirm that:
+The current parser works best with text-based PDFs.
 
-- The original file still exists.
-- The file has not been moved or renamed.
-- Windows has an application associated with the file type.
+If a PDF consists only of scanned images, text may not be available for BERT indexing.
 
----
-
-### Interface Text Is Difficult to Read
-
-Open **Settings** and:
-
-- Increase the font size.
-- Enable **High Contrast Mode**.
+OCR is not currently included in the main retrieval workflow.
 
 ---
 
-### Keyboard Navigation
+## 40. Search Result Cannot Be Opened
 
-Use `Tab` and `Shift + Tab` to move between controls.
+Check whether the original file:
 
-Use `Enter` or `Space` to activate the currently selected control.
+- Still exists
+- Has been moved
+- Has been renamed
+- Has an associated application installed
 
----
-
-## 19. Current Prototype Scope
-
-The current Week 7 prototype provides an end-to-end local document retrieval workflow.
-
-Implemented user-facing functionality includes:
-
-- Local TXT import
-- Local PDF import
-- Local DOCX import
-- English text retrieval
-- Chinese text retrieval
-- Similarity-based ranking
-- Local Flutter-to-Java backend integration
-- Opening retrieved local files
-- Keyboard navigation
-- High Contrast Mode
-- Dynamic Font Scaling
-- Semantic accessibility labels
-
-The current prototype uses a lightweight 256-dimensional deterministic text representation rather than a pretrained BERT model.
-
-The project continues to follow a modular design so that additional functionality can be incorporated in future versions, including:
-
-- Improved language-model-based embeddings
-- Image retrieval
-- OCR for scanned documents
-- Persistent local vector storage
-- Additional supported file formats
-- Further accessibility improvements
-- Additional user-interface refinement
+The semantic index does not contain a replacement copy of the original file.
 
 ---
 
-## 20. Additional Documentation
+## 41. Search Results Look Unexpected
 
-Additional project information is available under the `docs` directory:
+Semantic search is approximate.
 
-- `PRD.md` – project requirements.
-- `System_Architecture_Design.md` – system architecture.
-- `API_Reference.md` – backend and integration API documentation.
-- `Maintenance_Guide.md` – developer maintenance instructions.
-- `Open_Source_Compliance_Report.md` – open-source dependency and licensing information.
-- `Demo_Script.md` – demonstration procedure.
-- `Week5_Accessibility_User_Guide.md` – original accessibility prototype guide.
-- `Week5_Usability_Test.md` – usability testing documentation.
+Possible causes include:
+
+- Very short or ambiguous queries
+- Semantically broad test files
+- Low semantic similarity
+- Model limitations
+- Old indexed records remaining in ChromaDB
+
+Try a more descriptive query before assuming the retrieval service has failed.
 
 ---
 
-## 21. Conclusion
+## 42. Negative Similarity Scores
 
-The Offline Accessible Multimodal Local Content Retrieval System provides an offline-first prototype for retrieving information from local documents through an accessible Windows desktop interface.
+A result may occasionally have a negative similarity score.
 
-The current Week 7 prototype integrates the Flutter frontend with the Java retrieval backend and supports an end-to-end workflow covering local file import, document parsing, English and Chinese text representation, similarity retrieval, ranked result display, and opening original local documents.
+This is valid for cosine similarity and indicates very low semantic similarity.
 
-TXT, PDF, and DOCX documents are currently supported through the desktop workflow.
+It does not indicate a software error.
 
-The application also provides keyboard navigation, high contrast display options, dynamic font scaling, and semantic interface labels to improve accessibility.
+---
 
-This manual provides the information required to prepare the development environment, build the backend, launch the application, import documents, perform local searches, review and open results, and use the implemented accessibility features.
+## 43. Indexed Files No Longer Exist
+
+The `/files` operation may show:
+
+```text
+exists = false
+```
+
+for a file that has been moved or deleted after indexing.
+
+Remove the stale index entry or re-index the file from its new location.
+
+---
+
+# Current Scope
+
+## 44. Current Implemented Features
+
+The current Week 7 prototype includes:
+
+- TXT indexing
+- PDF indexing
+- DOCX indexing
+- JPG indexing
+- JPEG indexing
+- PNG indexing
+- BERT semantic text search
+- MobileCLIP semantic image search
+- Long-document chunking
+- File-level aggregation
+- Persistent ChromaDB storage
+- Multimodal score calibration
+- Local retrieval service
+- Flutter desktop interface
+- File opening
+- Accessibility features
+- Offline-first processing
+
+---
+
+## 45. Current Limitations
+
+The current prototype does not yet provide:
+
+- OCR for scanned PDFs
+- Full in-application document preview
+- All Microsoft Office file formats
+- Complete runtime validation on all desktop operating systems
+
+The project has been primarily tested on Windows.
+
+Flutter includes macOS and Linux desktop targets, but complete runtime testing of the full Java/Python/ML pipeline still requires access to the relevant environments.
+
+---
+
+## 46. Additional Documentation
+
+Additional documentation is available under:
+
+```text
+docs/
+```
+
+Important files include:
+
+- `PRD.md`
+- `System_Architecture_Design.md`
+- `API_Reference.md`
+- `Maintenance_Guide.md`
+- `Open_Source_Compliance_Report.md`
+- `Demo_Script.md`
+- `Week5_Accessibility_User_Guide.md`
+- `Week5_Usability_Test.md`
+
+---
+
+## 47. Conclusion
+
+The Offline Accessible Multimodal Local Content Retrieval System provides a local semantic retrieval workflow for documents and images.
+
+The current implementation combines:
+
+```text
+Flutter
+Java
+FastAPI
+BERT
+MobileCLIP
+ChromaDB
+```
+
+Users can index supported local files, perform semantic searches, review ranked multimodal results, and open original local files while keeping normal retrieval processing on the local machine.
+
+The interface also provides keyboard navigation, high contrast options, dynamic font scaling, and semantic accessibility information.
+
+This manual provides the main instructions required to prepare the development environment, start the retrieval service, build the Java backend, launch the Flutter interface, index local files, perform searches, use accessibility options, and troubleshoot common problems.
