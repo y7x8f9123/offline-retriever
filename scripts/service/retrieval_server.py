@@ -25,6 +25,16 @@ from text_embedding import TextEmbedding
 from image_embedding import ImageEmbedding
 
 
+CHUNK_SIZE = 400
+CHUNK_OVERLAP = 50
+CHUNK_SEARCH_MULTIPLIER = 5
+
+# MobileCLIP cosine similarity scores are generally lower
+# than BERT scores in the current retrieval pipeline.
+# This calibration factor was selected through local testing.
+IMAGE_SCORE_CALIBRATION = 1.25
+
+
 class Runtime:
     def __init__(self):
         self.store = None
@@ -65,6 +75,17 @@ def make_file_id(
     ).hexdigest()
 
 
+def make_chunk_id(
+    file_id: str,
+    chunk_index: int,
+) -> str:
+    return (
+        f"{file_id}"
+        f"_chunk_"
+        f"{chunk_index}"
+    )
+
+
 def file_extension(
     path: Path,
 ) -> str:
@@ -73,6 +94,46 @@ def file_extension(
         .lower()
         .lstrip(".")
     )
+
+
+def split_text(
+    content: str,
+    chunk_size: int = CHUNK_SIZE,
+    overlap: int = CHUNK_OVERLAP,
+) -> list[str]:
+    words = content.split()
+
+    if not words:
+        return []
+
+    if overlap >= chunk_size:
+        raise ValueError(
+            "Chunk overlap must be smaller "
+            "than chunk size."
+        )
+
+    chunks = []
+    start = 0
+
+    while start < len(words):
+        end = min(
+            start + chunk_size,
+            len(words),
+        )
+
+        chunk = " ".join(
+            words[start:end]
+        ).strip()
+
+        if chunk:
+            chunks.append(chunk)
+
+        if end >= len(words):
+            break
+
+        start = end - overlap
+
+    return chunks
 
 
 def build_metadata(
@@ -111,14 +172,25 @@ def result_list(
 
     output = []
 
-    for file_id, metadata, distance in zip(
+    for record_id, metadata, distance in zip(
         ids,
         metadatas,
         distances,
     ):
+        file_id = metadata.get(
+            "fileId",
+            record_id,
+        )
+
+        raw_score = (
+            1.0
+            - float(distance)
+        )
+
         output.append(
             {
                 "id": file_id,
+                "recordId": record_id,
                 "fileName": metadata.get(
                     "fileName",
                     "",
@@ -135,11 +207,69 @@ def result_list(
                     "contentType",
                     "",
                 ),
-                "score": 1.0 - float(distance),
+                "chunkIndex": metadata.get(
+                    "chunkIndex",
+                    -1,
+                ),
+                "rawScore": raw_score,
+                "score": raw_score,
             }
         )
 
     return output
+
+
+def aggregate_file_results(
+    results: list[dict],
+) -> list[dict]:
+    best_by_file = {}
+
+    for item in results:
+        file_id = item["id"]
+
+        existing = best_by_file.get(
+            file_id
+        )
+
+        if (
+            existing is None
+            or item["rawScore"]
+            > existing["rawScore"]
+        ):
+            best_by_file[file_id] = item
+
+    output = list(
+        best_by_file.values()
+    )
+
+    output.sort(
+        key=lambda item:
+            item["rawScore"],
+        reverse=True,
+    )
+
+    return output
+
+
+def calibrate_results(
+    results: list[dict],
+    calibration_factor: float,
+) -> list[dict]:
+    calibrated = []
+
+    for item in results:
+        updated = {
+            **item,
+            "score":
+                item["rawScore"]
+                * calibration_factor,
+        }
+
+        calibrated.append(
+            updated
+        )
+
+    return calibrated
 
 
 @asynccontextmanager
@@ -259,32 +389,69 @@ def index_text(
             detail="Unsupported text file type.",
         )
 
-    embedding = (
-        runtime.text_engine
-        .embed(content)
+    chunks = split_text(
+        content
     )
+
+    if not chunks:
+        raise HTTPException(
+            status_code=400,
+            detail="No text chunks were generated.",
+        )
 
     file_id = make_file_id(
         str(path)
     )
 
-    metadata = build_metadata(
+    base_metadata = build_metadata(
         path,
         "text",
     )
 
-    runtime.store.add_text_file(
-        file_id=file_id,
-        embedding=embedding.tolist(),
-        metadata=metadata,
-        document=content,
+    chunk_count = len(
+        chunks
     )
+
+    embedding_dimension = 0
+
+    for chunk_index, chunk in enumerate(
+        chunks
+    ):
+        embedding = (
+            runtime.text_engine
+            .embed(chunk)
+        )
+
+        if embedding_dimension == 0:
+            embedding_dimension = len(
+                embedding
+            )
+
+        record_id = make_chunk_id(
+            file_id,
+            chunk_index,
+        )
+
+        metadata = {
+            **base_metadata,
+            "fileId": file_id,
+            "chunkIndex": chunk_index,
+            "chunkCount": chunk_count,
+        }
+
+        runtime.store.add_text_file(
+            record_id=record_id,
+            embedding=embedding.tolist(),
+            metadata=metadata,
+            document=chunk,
+        )
 
     return {
         "status": "ok",
         "id": file_id,
         "contentType": "text",
-        "dimension": len(embedding),
+        "chunkCount": chunk_count,
+        "dimension": embedding_dimension,
     }
 
 
@@ -342,7 +509,9 @@ def index_image(
         "status": "ok",
         "id": file_id,
         "contentType": "image",
-        "dimension": len(embedding),
+        "dimension": len(
+            embedding
+        ),
     }
 
 
@@ -368,16 +537,27 @@ def search(
         .embed(query)
     )
 
+    chunk_search_k = (
+        top_k
+        * CHUNK_SEARCH_MULTIPLIER
+    )
+
     text_result = (
         runtime.store
         .search_text(
             text_embedding.tolist(),
-            top_k,
+            chunk_search_k,
         )
     )
 
     text_results = result_list(
         text_result
+    )
+
+    text_results = (
+        aggregate_file_results(
+            text_results
+        )
     )
 
     image_results = []
@@ -402,6 +582,11 @@ def search(
 
         image_results = result_list(
             image_result
+        )
+
+        image_results = calibrate_results(
+            image_results,
+            IMAGE_SCORE_CALIBRATION,
         )
 
     combined = (

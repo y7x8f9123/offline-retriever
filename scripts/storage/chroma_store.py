@@ -43,13 +43,13 @@ class ChromaStore:
 
     def add_text_file(
         self,
-        file_id: str,
+        record_id: str,
         embedding: list[float],
         metadata: dict[str, Any],
         document: str = "",
     ) -> None:
         self.text_collection.upsert(
-            ids=[file_id],
+            ids=[record_id],
             embeddings=[embedding],
             metadatas=[metadata],
             documents=[document],
@@ -113,9 +113,14 @@ class ChromaStore:
             ],
         )
 
-    def delete_file(self, file_id: str) -> None:
+    def delete_file(
+        self,
+        file_id: str,
+    ) -> None:
         self.text_collection.delete(
-            ids=[file_id]
+            where={
+                "fileId": file_id
+            }
         )
 
         self.image_collection.delete(
@@ -124,15 +129,26 @@ class ChromaStore:
 
     def get_all_files(self) -> list[dict]:
         output = []
+        seen_file_ids = set()
 
         text_result = self.text_collection.get(
             include=["metadatas"]
         )
 
-        for file_id, metadata in zip(
+        for record_id, metadata in zip(
             text_result.get("ids", []),
             text_result.get("metadatas", []),
         ):
+            file_id = metadata.get(
+                "fileId",
+                record_id,
+            )
+
+            if file_id in seen_file_ids:
+                continue
+
+            seen_file_ids.add(file_id)
+
             output.append(
                 {
                     "id": file_id,
@@ -148,6 +164,11 @@ class ChromaStore:
             image_result.get("ids", []),
             image_result.get("metadatas", []),
         ):
+            if file_id in seen_file_ids:
+                continue
+
+            seen_file_ids.add(file_id)
+
             output.append(
                 {
                     "id": file_id,
