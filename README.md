@@ -318,12 +318,20 @@ mvn test
 mvn clean test jacoco:report
 ```
 
-Current results include approximately:
+Final JaCoCo results:
 
 ```text
-Overall backend instruction coverage: 84%
-Core functional modules: 93–100%
-Vector retrieval package: 98%
+Overall backend instruction coverage: 61%
+Overall backend branch coverage: 44%
+
+Storage package: 63%
+Vector package: 95%
+Factory package: 93%
+Metadata package: 97%
+Embedding package: 100%
+Parser package: 100%
+Model package: 100%
+I/O package: 100%
 ```
 
 ### Flutter Tests
@@ -402,7 +410,9 @@ docs/
 Important documents include:
 
 - `System_Architecture_Design.md`
+- `Accessibility_User_Guide.md`
 - `API_Reference.md`
+- `Testing_Report.md`
 - `Maintenance_Guide.md`
 - `End_User_Manual.md`
 - `Open_Source_Compliance_Report.md`
