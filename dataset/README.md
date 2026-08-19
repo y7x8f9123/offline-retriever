@@ -5,98 +5,64 @@
 | Project | Offline Accessible Multimodal Local Content Retrieval System |
 | Version | 1.0 |
 | Author | Xuefei Yao |
-| Date | 2026-07-05 |
+| Finalisation | 2026-08 |
 
 ---
 
-# 1. Purpose
+## 1. Purpose
 
-This repository stores the datasets used for validating document parsing, semantic search, multimodal retrieval, and OCR performance.
+This directory documents the evaluation data used during development of the Offline Accessible Multimodal Local Content Retrieval System.
 
-The project uses publicly available datasets for evaluation only. All datasets remain in their original formats and licenses.
-
----
-
-# 2. Dataset Structure
-
-```
-dataset/
-├── natural_questions/
-├── coco/
-├── rvl_cdip/
-├── wikipedia/
-└── README.md
-```
+The datasets and local test files were used to validate document parsing, semantic retrieval, image-text retrieval, multimodal indexing, and scalability. The datasets are evaluation resources only and are not required for normal application operation.
 
 ---
 
-# 3. Selected Datasets
+## 2. Original Dataset Plan
 
-## 3.1 Natural Questions (NQ)
+Four public datasets were selected during the initial project planning stage:
 
-Purpose
+- **Natural Questions (NQ)** — text embedding and semantic retrieval evaluation.
+- **COCO** — image embedding and image-text retrieval evaluation.
+- **RVL-CDIP** — scanned document and document-image evaluation.
+- **Wikipedia Corpus** — long-document and large-scale retrieval evaluation.
 
-- Text embedding validation
-- Semantic search evaluation
-- Long document retrieval
-
-Status
-
-Planned
+During development, some of the originally referenced download sources became unavailable or were no longer accessible. As a result, the final evaluation used small locally available subsets where practical together with representative local test files and generated scalability-test data.
 
 ---
 
-## 3.2 COCO
+## 3. Final Dataset Usage
 
-Purpose
+### 3.1 Natural Questions
 
-- Image embedding validation
-- Image-text retrieval
-- Multimodal search testing
+A small text subset was retained and used as representative input for text parsing and semantic retrieval experiments. The complete Natural Questions dataset is not distributed with this repository.
 
-Status
+### 3.2 COCO
 
-Planned
+A small image subset was retained for image embedding and text-to-image retrieval experiments. The complete COCO dataset is not distributed with this repository.
 
----
+### 3.3 RVL-CDIP
 
-## 3.3 RVL-CDIP
+RVL-CDIP was included in the original evaluation plan for scanned-document testing. The originally referenced source was not available during final development, so the full dataset was not included in the final repository.
 
-Purpose
+### 3.4 Wikipedia Corpus
 
-- OCR validation
-- Scanned document retrieval
-- Document image testing
-
-Status
-
-Planned
+A Wikipedia corpus was originally planned for long-document and batch-processing evaluation. The originally referenced source was not available during final development, so the full corpus was not included in the final repository. Long-document and scalability behaviour was instead validated using representative local and generated test files.
 
 ---
 
-## 3.4 Wikipedia Corpus
+## 4. Repository Policy
 
-Purpose
-
-- Long document indexing
-- Batch processing benchmark
-- Large-scale retrieval testing
-
-Status
-
-Planned
+- Large public datasets are not bundled with the repository.
+- Only small evaluation subsets may be retained when useful for reproducible testing.
+- Temporary development files, generated stress-test files, and duplicate sample files should not be committed.
+- Original dataset files are not modified.
+- Dataset licenses and redistribution requirements must be respected.
+- Evaluation data is not required for normal offline retrieval operation.
 
 ---
 
-# 4. Dataset Management Rules
+## 5. Final Project Status
 
-- Only official datasets will be used.
-- Original dataset files will not be modified.
-- Validation subsets may be created for faster testing.
-- Dataset licenses will be respected.
+Dataset planning was used to guide evaluation throughout development, but the final application is designed to operate on user-provided local files rather than on a fixed bundled dataset.
 
----
-
-# 5. Future Work
-
-During later development stages, validation subsets will be downloaded and organized according to the project requirements.
+Final validation therefore combines available dataset subsets with representative local files and generated test data appropriate to each test scenario.
