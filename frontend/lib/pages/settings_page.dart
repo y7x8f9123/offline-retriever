@@ -186,7 +186,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     leading: Icon(Icons.info_outline),
                     title: Text('Offline Local Retrieval System'),
                     subtitle: Text(
-                      'Cross-platform accessible interface developed with Flutter.',
+                      'Accessible Windows desktop interface developed with Flutter.',
                     ),
                   ),
                 ),

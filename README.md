@@ -34,6 +34,7 @@ Once the required dependencies and machine-learning models are available locally
 - Accessibility-focused Flutter interface
 - WCAG 2.1 AA design objectives
 - Java CLI and local FastAPI integration
+- Windows desktop release target
 
 ---
 
@@ -297,9 +298,7 @@ Run tests:
 flutter test
 ```
 
-The project includes Flutter desktop targets for Windows, macOS, and Linux.
-
-The current implementation has been functionally validated primarily on Windows. macOS and Linux runtime validation remains dependent on access to those development environments.
+The current release targets Windows and has been functionally validated on Windows.
 
 ---
 
@@ -333,6 +332,12 @@ Parser package: 100%
 Model package: 100%
 I/O package: 100%
 ```
+
+The overall backend coverage includes application entry points, integration-oriented components, and service-related code that are less suitable for direct unit testing.
+
+Core functional modules maintain substantially higher coverage, with the major reusable packages achieving between 63% and 100% instruction coverage.
+
+Several core packages, including the embedding, parser, model, and I/O modules, achieved full instruction coverage, while the vector package reached 95% and the storage package reached 63%.
 
 ### Flutter Tests
 
@@ -410,14 +415,24 @@ docs/
 Important documents include:
 
 - `System_Architecture_Design.md`
-- `Accessibility_User_Guide.md`
 - `API_Reference.md`
-- `Testing_Report.md`
 - `Maintenance_Guide.md`
 - `End_User_Manual.md`
+- `Accessibility_User_Guide.md`
+- `Testing_Report.md`
 - `Open_Source_Compliance_Report.md`
-- `Demo_Script.md`
+- `Environment_Setup_Report.md`
+- `Risk_Management_Plan.md`
 - `PRD.md`
+- `Demo_Script.md`
+
+---
+
+## Project Scope
+
+The project was developed as an eight-week software engineering project.
+
+The final application release targets Windows. The project focuses on demonstrating a complete local retrieval workflow including file ingestion, parsing, embedding generation, persistent vector storage, semantic retrieval, multimodal ranking, and an accessible desktop user interface.
 
 ---
 
@@ -425,10 +440,4 @@ Important documents include:
 
 This project is released under the Apache License 2.0.
 
-See:
-
-```text
-LICENSE
-```
-
-for the full license text.
+See the `LICENSE` file for the full license text.

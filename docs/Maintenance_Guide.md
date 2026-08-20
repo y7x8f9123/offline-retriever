@@ -6,66 +6,67 @@ This document provides maintenance guidance for the Offline Accessible Multimoda
 
 It is intended for developers who need to build, test, troubleshoot, maintain, or extend the project.
 
-The current system consists of:
+The final system consists of:
 
-- Flutter desktop frontend
+- Flutter Windows desktop frontend
 - Java backend and CLI bridge
 - Local Python FastAPI retrieval service
 - BERT text embedding model
-- MobileCLIP image/text embedding model
+- MobileCLIP image and text embedding model
 - ChromaDB persistent vector storage
 
-The current retrieval workflow supports:
+The supported file formats are:
 
-- TXT
-- PDF
-- DOCX
-- JPG
-- JPEG
-- PNG
+```text
+TXT
+PDF
+DOCX
+JPG
+JPEG
+PNG
+```
 
-The application follows an offline-first architecture. Once the required dependencies and machine-learning models are installed locally, normal indexing and retrieval can operate without external network access.
+The application follows an offline-first architecture.
+
+Once the required dependencies and machine-learning models are installed locally, normal indexing and retrieval can operate without a remote search or inference API.
 
 ---
 
-## 2. Project Structure
+## 2. Final Project Structure
 
-The main project directories are:
+The final public repository is organized around the following main directories:
 
 ```text
-shixi/
+offline-retriever/
 ├── assets/
 ├── backend/
-├── chroma_db/
 ├── dataset/
 ├── docs/
 ├── frontend/
-├── models/
 ├── scripts/
-├── tests/
 ├── .gitignore
+├── LICENSE
 └── README.md
 ```
 
 ### Main Components
 
-- `backend/` – Java application logic, parsing, CLI integration, and tests.
-- `frontend/` – Flutter user interface and frontend tests.
-- `scripts/` – Python embedding, storage, and retrieval-service components.
-- `chroma_db/` – local persistent vector database generated at runtime.
+- `backend/` – Java application logic, file parsing, metadata processing, CLI integration, and backend tests.
+- `frontend/` – Flutter Windows desktop user interface and frontend tests.
+- `scripts/` – Python retrieval service, machine-learning integration, and ChromaDB operations.
 - `docs/` – project documentation.
-- `models/` – local model resources where applicable.
-- `dataset/` – development and validation datasets.
-- `tests/` – additional testing resources.
+- `dataset/` – dataset documentation and validation resources.
 - `assets/` – project assets.
 
-Runtime data such as ChromaDB files and downloaded model files should not normally be committed to Git.
+Runtime-generated data such as ChromaDB storage and temporary test files should not normally be committed to Git.
+
+Downloaded model resources should also be reviewed before inclusion because they may be large and may have separate redistribution requirements.
 
 ---
 
-## 3. Current System Architecture
+## 3. System Architecture
 
-The main application flow is:
+The final application flow is:
 
 ```text
 Flutter Frontend
@@ -81,6 +82,7 @@ Local FastAPI Service
        |                   |
        v                   v
      BERT              MobileCLIP
+Text Embedding       Image / Text
        |                   |
        +---------+---------+
                  |
@@ -88,33 +90,31 @@ Local FastAPI Service
               ChromaDB
 ```
 
-The responsibilities are separated as follows:
+### Flutter Responsibilities
 
-### Flutter
-
-Handles:
+The Flutter frontend handles:
 
 - File selection
 - Search input
 - Indexed-file display
-- Search-result display
+- Search-result presentation
 - File opening
 - User interaction
-- Accessibility-related UI behavior
+- Accessibility-related interface behaviour
 
-### Java
+### Java Responsibilities
 
-Handles:
+The Java backend handles:
 
 - File scanning
-- TXT/PDF/DOCX parsing
+- TXT, PDF, and DOCX parsing
 - Metadata processing
-- CLI commands
+- CLI operations
 - Communication with the local retrieval service
 
-### Python
+### Python Responsibilities
 
-Handles:
+The Python service handles:
 
 - BERT inference
 - MobileCLIP inference
@@ -126,40 +126,55 @@ Handles:
 
 ---
 
-## 4. Development Environment
+## 4. Platform Scope
 
-Before working on the project, verify that the required development tools are available.
+The final release targets:
+
+```text
+Windows Desktop
+```
+
+The project was developed, tested, and functionally validated on Windows.
+
+Flutter may contain generated files for other desktop platforms, but Linux and macOS runtime validation are outside the final project release scope.
+
+---
+
+## 5. Development Environment
+
+Before maintaining the project, verify that the required development tools are available.
 
 Typical requirements include:
 
-- Java
+- Windows
+- Java Development Kit
 - Maven
 - Python
 - pip
-- Flutter
-- Windows desktop development tools when building the Windows version
+- Flutter SDK
+- Windows desktop development tools
 
 Check Java:
 
-```bash
+```powershell
 java -version
 ```
 
 Check Maven:
 
-```bash
+```powershell
 mvn -version
 ```
 
 Check Python:
 
-```bash
+```powershell
 python --version
 ```
 
 Check Flutter:
 
-```bash
+```powershell
 flutter doctor
 ```
 
@@ -167,18 +182,19 @@ Any missing dependencies reported by these commands should be resolved before tr
 
 ---
 
-## 5. Python Environment
+## 6. Python Environment
 
-The Python retrieval service requires the dependencies used by:
+The local retrieval service depends on components including:
 
 - FastAPI
 - Uvicorn
 - ChromaDB
-- BERT
-- MobileCLIP
-- PyTorch and related model libraries
-
-Developers should use the project's configured Python environment when running the retrieval service.
+- PyTorch
+- Transformers
+- BERT model resources
+- MobileCLIP model resources
+- NumPy
+- Pillow
 
 Before changing Python dependencies:
 
@@ -186,28 +202,29 @@ Before changing Python dependencies:
 2. Record the existing dependency versions.
 3. Make dependency changes separately from unrelated code changes.
 4. Restart the retrieval service.
-5. Test both BERT and MobileCLIP loading.
-6. Test text and image retrieval.
+5. Verify BERT loading.
+6. Verify MobileCLIP loading.
+7. Test text indexing.
+8. Test image indexing.
+9. Test semantic retrieval.
 
 Machine-learning dependencies can be large and may have platform-specific requirements.
 
 ---
 
-## 6. Starting the Local Retrieval Service
+## 7. Starting the Local Retrieval Service
 
-The retrieval service is implemented with FastAPI and Uvicorn.
+The retrieval service is implemented using FastAPI and Uvicorn.
 
-The service listens on:
+It listens on:
 
 ```text
 127.0.0.1:8765
 ```
 
-It should remain bound to the loopback interface for normal local operation.
+The service should remain bound to the loopback interface for normal local operation.
 
-Start the service using the project's Python environment and retrieval server script.
-
-For example, from the project root:
+From the project root, start it using:
 
 ```powershell
 python scripts\service\retrieval_server.py
@@ -219,7 +236,7 @@ During startup, the service initializes:
 2. BERT
 3. MobileCLIP
 
-Typical startup output includes messages similar to:
+Typical successful startup output includes messages similar to:
 
 ```text
 Starting Offline Retriever backend...
@@ -229,13 +246,13 @@ Loading MobileCLIP...
 Offline Retriever backend ready.
 ```
 
-The first startup may take longer because machine-learning models must be loaded into memory.
+The first startup may take additional time because machine-learning models must be loaded into memory.
 
-Do not assume the service has failed simply because model initialization takes several seconds.
+A slow cold start should not immediately be treated as service failure.
 
 ---
 
-## 7. Checking Retrieval Service Health
+## 8. Retrieval Service Health Check
 
 After starting the service, verify it before testing Java or Flutter integration.
 
@@ -245,17 +262,9 @@ On Windows PowerShell:
 Invoke-RestMethod http://127.0.0.1:8765/health
 ```
 
-A healthy service returns information similar to:
+A healthy service should confirm that the service is available and that the required retrieval components have loaded.
 
-```text
-status            : ok
-text_records      : 12
-image_records     : 2
-bert_loaded       : True
-mobileclip_loaded : True
-```
-
-Verify:
+Important conditions include:
 
 ```text
 status = ok
@@ -263,11 +272,11 @@ bert_loaded = True
 mobileclip_loaded = True
 ```
 
-`text_records` represents vector records rather than strictly source-file count because long documents may contain multiple chunks.
+Record counts represent stored vector records and may not equal the number of original files because long documents can generate multiple chunks.
 
 ---
 
-## 8. Python Retrieval Service Endpoints
+## 9. Retrieval Service Endpoints
 
 The main local endpoints are:
 
@@ -280,42 +289,38 @@ POST /search
 POST /delete
 ```
 
-When modifying the service:
+When changing an endpoint:
 
-- Keep existing request and response structures compatible with Java where possible.
-- Update the Java client when endpoint structures change.
+- Keep request and response formats compatible with Java where possible.
+- Update the Java bridge if the API changes.
 - Update `API_Reference.md`.
-- Re-run integration tests.
-- Restart the service before testing new Python code.
+- Restart the Python service.
+- Rebuild the Java backend if required.
+- Run integration tests.
+- Run a manual end-to-end test.
 
-Because the Python process remains running, editing a source file does not necessarily update the already-running service unless reload functionality is explicitly enabled.
+Because the Python process remains running, source-code changes may not affect an already-running service unless reload functionality is enabled.
 
-For reliable testing, restart the service after important changes.
+Restart the service after important changes.
 
 ---
 
-## 9. ChromaDB Maintenance
+## 10. ChromaDB Maintenance
 
-Persistent vector storage is implemented using ChromaDB.
+ChromaDB is used for persistent local vector storage.
 
-The database is stored under:
-
-```text
-chroma_db/
-```
-
-Two collections are currently used:
+The system uses two main collections:
 
 ```text
 offline_retriever_text
 offline_retriever_images
 ```
 
-The text collection stores BERT embeddings.
+The text collection stores BERT-based text embeddings.
 
-The image collection stores MobileCLIP embeddings.
+The image collection stores MobileCLIP image embeddings.
 
-Both collections use cosine similarity.
+Both are used for cosine-similarity retrieval.
 
 ### Important Rule
 
@@ -323,21 +328,38 @@ Do not manually edit ChromaDB internal database files.
 
 Use application APIs or ChromaDB operations to modify indexed records.
 
-### Database Compatibility
+### Compatibility
 
-Existing vectors may become invalid if developers change:
+Existing vectors may become incompatible if developers change:
 
 - BERT model
 - MobileCLIP model
-- Embedding dimension
+- Embedding dimensions
 - Embedding preprocessing
-- Distance metric
+- Similarity or distance configuration
 
-After such changes, existing data may need to be cleared and re-indexed.
+After such changes, old vector data may need to be cleared and indexed again.
 
 ---
 
-## 10. Long-Document Chunking
+## 11. Runtime Database Data
+
+Runtime ChromaDB data is generated during application use.
+
+It may contain:
+
+- Vector embeddings
+- File metadata
+- Local file paths
+- Information derived from indexed files
+
+Development ChromaDB databases should not normally be committed to a public repository.
+
+When preparing a clean release, verify that user-generated or development database files are excluded.
+
+---
+
+## 12. Long-Document Chunking
 
 Long text documents are divided into overlapping chunks before embedding.
 
@@ -348,11 +370,9 @@ CHUNK_SIZE = 400
 CHUNK_OVERLAP = 50
 ```
 
-These values are defined in the retrieval-service implementation.
+The overlap helps retain context around chunk boundaries.
 
-The overlap helps preserve context around chunk boundaries.
-
-Each chunk contains metadata including:
+Chunk metadata includes information such as:
 
 ```text
 fileId
@@ -365,26 +385,26 @@ chunkCount
 Increasing chunk size may:
 
 - Reduce the number of vectors
+- Reduce storage overhead
 - Reduce indexing overhead
-- Increase the amount of text processed per embedding
-- Potentially lose fine-grained retrieval accuracy
+- Reduce retrieval granularity
 
 Decreasing chunk size may:
 
 - Increase the number of vectors
 - Increase storage requirements
 - Increase indexing time
-- Improve retrieval granularity
+- Improve fine-grained retrieval
 
 Do not change chunking parameters without re-running retrieval and performance tests.
 
 ---
 
-## 11. File-Level Aggregation
+## 13. File-Level Aggregation
 
-A long document may create multiple ChromaDB records.
+A long document may create multiple vector records.
 
-Search results should nevertheless return the source file rather than multiple copies of the same document.
+Search results should still return the source file as a single result rather than displaying repeated chunks.
 
 Text search therefore performs file-level aggregation.
 
@@ -394,29 +414,29 @@ Records are grouped using:
 fileId
 ```
 
-The highest-scoring matching chunk is used to represent the source file.
+The highest-scoring relevant chunk is used to represent the source file.
 
-When modifying this logic, verify that:
+After modifying aggregation logic, verify that:
 
-- One document does not appear repeatedly in search results.
-- The most relevant chunk determines file ranking.
-- Deletion removes all chunks belonging to the file.
-- `/files` returns one entry per source file.
+- A document does not appear repeatedly.
+- The most relevant chunk determines ranking.
+- Deletion removes all chunks associated with the file.
+- `/files` returns one logical entry per source file.
 
 ---
 
-## 12. Multimodal Ranking
+## 14. Multimodal Ranking
 
-Text and image retrieval use different models:
+Text and image retrieval use different embedding models:
 
 ```text
 Text  → BERT
 Image → MobileCLIP
 ```
 
-Their raw similarity distributions are different.
+Their raw cosine similarity score distributions are different.
 
-The current implementation therefore applies image-score calibration.
+The current implementation applies image-score calibration.
 
 Current value:
 
@@ -434,32 +454,25 @@ image final score =
 MobileCLIP cosine similarity × 1.25
 ```
 
-### Maintenance Rule
+Do not change the calibration factor only to force image results above document results.
 
-Do not increase the calibration factor simply to force images above text results.
+Any change should be evaluated using:
 
-Changes should be based on retrieval tests using several query types, including:
-
-- Image-oriented queries
 - Text-oriented queries
+- Image-oriented queries
 - General semantic queries
 - Irrelevant queries
 
-After changing calibration, record the new value and update:
-
-- API Reference
-- Architecture documentation
-- Maintenance Guide
-- Relevant test records
+After changing the calibration value, update relevant documentation and testing records.
 
 ---
 
-## 13. ChromaDB Storage API
+## 15. ChromaDB Storage Component
 
-The main Python storage component is:
+The main Python storage component is located under:
 
 ```text
-scripts/storage/chroma_store.py
+scripts/storage/
 ```
 
 Its responsibilities include:
@@ -468,75 +481,65 @@ Its responsibilities include:
 - Adding image records
 - Searching text embeddings
 - Searching image embeddings
-- Deleting files
+- Deleting indexed files
 - Listing indexed files
 - Counting records
 
-Important operations include:
-
-```text
-add_text_file()
-add_image_file()
-search_text()
-search_images()
-delete_file()
-get_all_files()
-text_count()
-image_count()
-```
-
-Changes to this file can affect persistent indexed data and should be tested carefully.
+Changes to storage code can affect persistent data and should be tested carefully.
 
 ---
 
-## 14. BERT Maintenance
+## 16. BERT Maintenance
 
 BERT provides semantic embeddings for:
 
 - Text document chunks
 - User text queries
 
-The same embedding implementation must be used for both indexed documents and queries.
+Indexed text and search queries must use compatible embedding logic.
 
-If the BERT model is changed:
+If the BERT model or preprocessing changes:
 
 1. Verify model loading.
 2. Verify embedding dimensions.
-3. Clear incompatible old vectors if necessary.
-4. Re-index test documents.
-5. Run semantic retrieval tests.
-6. Run long-document tests.
-7. Run performance tests.
-8. Test offline operation.
+3. Verify query embedding generation.
+4. Clear incompatible vectors if required.
+5. Re-index test documents.
+6. Run semantic retrieval tests.
+7. Run long-document tests.
+8. Run performance tests.
+9. Verify offline operation.
 
-Do not compare embeddings generated by incompatible models.
+Embeddings from incompatible models should not be mixed in the same collection.
 
 ---
 
-## 15. MobileCLIP Maintenance
+## 17. MobileCLIP Maintenance
 
 MobileCLIP provides embeddings for:
 
 - Local images
 - Text queries used for image retrieval
 
-This allows text-to-image semantic retrieval.
+This enables text-to-image semantic search.
 
-If the MobileCLIP implementation changes:
+If MobileCLIP changes:
 
 1. Verify image preprocessing.
 2. Verify image embedding generation.
 3. Verify text embedding generation.
-4. Confirm both embeddings use the same MobileCLIP space.
+4. Confirm image and text embeddings remain in the same compatible embedding space.
 5. Re-index images if required.
-6. Re-run multimodal ranking tests.
-7. Review the image calibration factor.
+6. Run multimodal retrieval tests.
+7. Review the image-score calibration factor.
 
-A successful model load does not by itself prove correct retrieval. Semantic queries should also be tested.
+Successful model loading alone does not confirm retrieval correctness.
+
+Semantic queries should also be tested.
 
 ---
 
-## 16. Java Backend Maintenance
+## 18. Java Backend Maintenance
 
 The Java backend is located under:
 
@@ -544,35 +547,32 @@ The Java backend is located under:
 backend/src/main/java/com/offlineretriever/
 ```
 
-Important responsibilities include:
+Its main responsibilities include:
 
 - File scanning
 - File parsing
 - Metadata handling
-- Local service communication
+- Retrieval-service communication
 - CLI commands
+- Application orchestration
 
-Earlier Java-only vector retrieval components may remain in the repository for testing, demonstration, or historical implementation purposes.
-
-However, the main application retrieval path now uses:
+The final application retrieval flow is:
 
 ```text
-Java
-  ↓
-FastAPI
-  ↓
+Java Backend
+     ↓
+FastAPI Service
+     ↓
 BERT / MobileCLIP
-  ↓
+     ↓
 ChromaDB
 ```
 
-Developers should not accidentally reconnect the frontend to the old in-memory prototype retrieval path.
+Changes to Java request or response handling should always be tested against the running Python retrieval service.
 
 ---
 
-## 17. Building the Java Backend
-
-The backend uses Maven.
+## 19. Building the Java Backend
 
 From the project root:
 
@@ -604,13 +604,13 @@ The expected JAR is:
 backend/target/backend-1.0-SNAPSHOT.jar
 ```
 
-After modifying Java code used by Flutter or the CLI, rebuild the JAR before integration testing.
+After modifying Java code used by the CLI or frontend integration, rebuild the JAR before end-to-end testing.
 
 ---
 
-## 18. Backend CLI
+## 20. Java CLI
 
-The current CLI supports:
+The CLI supports:
 
 ```text
 index
@@ -619,15 +619,13 @@ list
 delete
 ```
 
-From the project root:
-
 ### Index
 
 ```powershell
 java -jar backend\target\backend-1.0-SNAPSHOT.jar index example.txt
 ```
 
-Multiple files may be supplied:
+Multiple files:
 
 ```powershell
 java -jar backend\target\backend-1.0-SNAPSHOT.jar index file1.txt file2.pdf image.png
@@ -651,15 +649,13 @@ java -jar backend\target\backend-1.0-SNAPSHOT.jar list
 java -jar backend\target\backend-1.0-SNAPSHOT.jar delete <file-id>
 ```
 
-The FastAPI service must be running for retrieval-service operations.
+The local FastAPI retrieval service must be available for retrieval operations.
 
 ---
 
-## 19. CLI Output
+## 21. CLI Output
 
-Successful CLI operations return machine-readable output.
-
-Search output is JSON.
+CLI operations may return machine-readable JSON.
 
 For example:
 
@@ -676,17 +672,15 @@ For example:
 ]
 ```
 
-Avoid adding arbitrary debugging output to standard output if Flutter expects to decode the response as JSON.
+Avoid adding arbitrary debugging text to standard output where another component expects JSON.
 
-Diagnostic messages should be separated from structured application output where possible.
+Diagnostic messages should be separated from structured output where possible.
 
 ---
 
-## 20. File Parsing Maintenance
+## 22. File Parsing Maintenance
 
-Text extraction is performed before BERT indexing.
-
-Supported text formats currently include:
+Supported text formats are:
 
 ```text
 TXT
@@ -694,7 +688,7 @@ PDF
 DOCX
 ```
 
-Supported image formats include:
+Supported image formats are:
 
 ```text
 JPG
@@ -702,31 +696,34 @@ JPEG
 PNG
 ```
 
-When adding a new text document format:
+When adding a new text format:
 
-1. Add or update parser support.
-2. Update `ParserFactory`.
+1. Add parser support.
+2. Update parser selection logic.
 3. Test extraction.
 4. Update frontend file selection.
 5. Test indexing.
-6. Test retrieval.
-7. Update documentation.
+6. Test search.
+7. Test result opening.
+8. Update documentation.
 
 When adding a new image format:
 
-1. Verify MobileCLIP can load it correctly.
-2. Update file-extension validation.
-3. Update Java routing.
+1. Verify that MobileCLIP can process it.
+2. Update extension validation.
+3. Update Java routing if required.
 4. Update frontend file selection.
-5. Test end-to-end indexing and retrieval.
+5. Test indexing.
+6. Test semantic retrieval.
+7. Update documentation.
 
-Supporting a format in only one layer does not constitute complete application support.
+A file type should not be described as supported until the complete workflow has been validated.
 
 ---
 
-## 21. Adding New File Types
+## 23. Adding New File Types
 
-Before describing a file type as supported, verify the complete flow:
+Before documenting a new file type as supported, verify:
 
 ```text
 Frontend selection
@@ -746,11 +743,11 @@ Result display
 File opening
 ```
 
-A format should only be documented as supported after this complete workflow succeeds.
+Support in only one layer is not complete application support.
 
 ---
 
-## 22. Backend Tests
+## 24. Backend Testing
 
 Java backend tests are located under:
 
@@ -765,19 +762,21 @@ cd backend
 mvn test
 ```
 
-After modifying core Java functionality, run the complete test suite rather than only the directly affected test.
+After modifying core functionality, run the complete backend test suite rather than only a single affected test.
 
-A successful run should end with:
+A successful final run should complete with:
 
 ```text
 BUILD SUCCESS
 ```
 
+Integration tests involving the retrieval service require the local FastAPI service and required model resources to be available.
+
 ---
 
-## 23. JaCoCo Coverage
+## 25. JaCoCo Coverage
 
-JaCoCo is used for backend coverage measurement.
+JaCoCo is used for Java backend code-coverage measurement.
 
 Generate the report using:
 
@@ -791,21 +790,33 @@ The report is generated under:
 backend/target/site/jacoco/
 ```
 
-Current project testing has achieved approximately:
+Final measured backend coverage includes:
 
 ```text
-Overall backend instruction coverage: 84%
-Core functional modules: approximately 93–100%
-Vector retrieval package: approximately 98%
+Overall backend instruction coverage: 61%
+Overall backend branch coverage: 44%
+
+Storage package: 63%
+Vector package: 95%
+Factory package: 93%
+Metadata package: 97%
+Embedding package: 100%
+Parser package: 100%
+Model package: 100%
+I/O package: 100%
 ```
 
-Entry-point and demonstration classes are not the primary unit-testing targets and account for part of the uncovered code.
+The lower overall percentage is influenced by application entry points, CLI orchestration, integration-oriented code, and service-management paths.
 
-Coverage percentage should not be increased by removing meaningful code or writing tests with no useful behavioral validation.
+Core reusable functional modules have substantially higher coverage.
+
+Coverage should be interpreted together with functional, integration, and end-to-end testing rather than as a single isolated percentage.
+
+Do not increase coverage artificially by removing meaningful code or creating tests that do not validate useful behaviour.
 
 ---
 
-## 24. Flutter Maintenance
+## 26. Flutter Maintenance
 
 The Flutter project is located under:
 
@@ -820,660 +831,353 @@ cd frontend
 flutter pub get
 ```
 
-Check the development environment:
-
-```powershell
-flutter doctor
-```
-
-Run the Windows desktop application:
+Run the Windows application:
 
 ```powershell
 flutter run -d windows
 ```
 
-Run tests:
+Run Flutter tests:
 
 ```powershell
 flutter test
 ```
 
-Generate frontend coverage:
+When modifying frontend code, verify:
 
-```powershell
-flutter test --coverage
-```
-
----
-
-## 25. Flutter File Selection
-
-The frontend should remain synchronized with backend-supported formats.
-
-Current supported formats are:
-
-```text
-txt
-pdf
-docx
-jpg
-jpeg
-png
-```
-
-When changing supported formats, verify both:
-
-- Flutter file-picker configuration
-- Backend indexing support
-
-The original local file path must be preserved because it is used for:
-
-- Indexing
-- Metadata
-- File existence checks
-- Opening results
-
----
-
-## 26. Search Result Maintenance
-
-Search results may contain both:
-
-```text
-text
-image
-```
-
-content types.
-
-The frontend should not assume that every result is a text document.
-
-Important result fields include:
-
-```text
-id
-fileName
-filePath
-fileType
-contentType
-score
-```
-
-Additional fields may be returned by the retrieval service, such as:
-
-```text
-recordId
-chunkIndex
-rawScore
-```
-
-The frontend should only depend on fields required for its UI behavior.
-
----
-
-## 27. File Opening
-
-Retrieved files are opened using the operating system's associated application.
-
-Before opening a file, the application should verify that the original path still exists.
-
-The indexed vector database does not contain a complete copy of the source file.
-
-Therefore:
-
-```text
-Deleting or moving the original file
-```
-
-may cause file-opening operations to fail even though an old vector record remains indexed.
-
-The `/files` endpoint provides an `exists` field to help detect this condition.
-
----
-
-## 28. Frontend Testing
-
-Important frontend workflows to test include:
-
-- File import
-- TXT selection
-- PDF selection
-- DOCX selection
-- Image selection
+- File selection
 - Search input
-- Empty-query validation
-- Search result display
-- Text result display
-- Image result display
-- File opening
-- Missing-file behavior
+- Empty-query handling
+- Search-result display
+- Indexed-file management
+- Settings
 - Keyboard navigation
-- Accessibility labels
+- High Contrast Mode
+- Font scaling
 
-When data models change, update widget-test mock objects accordingly.
-
----
-
-## 29. Accessibility Maintenance
-
-Accessibility is a core project requirement.
-
-UI changes should preserve:
-
-- Keyboard-accessible interaction
-- Semantic labels
-- Screen-reader compatibility
-- Readable text
-- Appropriate text scaling
-- Sufficient visual contrast
-- Clear status messages
-- Understandable navigation
-- Clearly identified controls
-
-Accessibility testing should be repeated after significant UI changes.
-
-The project targets WCAG 2.1 AA principles where applicable.
+The final validated frontend target is Windows.
 
 ---
 
-## 30. Offline-First Requirements
+## 27. Accessibility Maintenance
 
-Normal retrieval operations should remain local.
+The application includes accessibility-focused interface functionality.
 
-The following data should not be sent to external services during normal application use:
+Implemented features include:
 
-- User files
-- Extracted document content
-- Search queries
-- Embeddings
-- Indexed metadata
+- Keyboard navigation
+- High Contrast Mode
+- Dynamic Font Scaling
+- Semantic accessibility labels
 
-The FastAPI service is intentionally bound to:
+When modifying Flutter UI components:
+
+1. Confirm that keyboard navigation still works.
+2. Check that interactive controls remain reachable.
+3. Preserve semantic labels.
+4. Test standard and High Contrast modes.
+5. Test all supported font sizes.
+6. Verify that enlarged text does not hide critical controls.
+
+The project uses WCAG 2.1 AA as an accessibility design objective.
+
+Do not claim formal accessibility certification without appropriate formal validation.
+
+---
+
+## 28. Opening Local Files
+
+Search results may allow users to open the original indexed file.
+
+The system relies on the stored local path.
+
+If a file is:
+
+- Moved
+- Renamed
+- Deleted
+
+the stored path may become invalid.
+
+If file-location handling is modified, test all supported formats and ensure that the application does not delete the user's original source file when removing an index record.
+
+---
+
+## 29. Indexed-File Deletion
+
+Deleting a file from the application index should remove its associated ChromaDB records.
+
+For long documents, all chunks belonging to the same logical file must be removed.
+
+Deletion of an indexed record must not delete the original local source file.
+
+After modifying deletion logic, test:
+
+- Text-file deletion
+- Long-document deletion
+- Image deletion
+- `/files` output after deletion
+- Search results after deletion
+
+---
+
+## 30. Performance Testing
+
+The retrieval pipeline was stress-tested using 1,000 generated TXT files.
+
+Observed indexing data included:
 
 ```text
-127.0.0.1
+Text records before test: 12
+Text records after test: 1012
+Stress-test files confirmed: 1000
 ```
 
-rather than an externally accessible host.
+Measured batches included:
 
-Model download or dependency installation may require Internet access during initial setup.
-
-After required models are locally available, normal retrieval should work without network access.
-
----
-
-## 31. Offline Validation
-
-After dependency and model setup, offline behavior should be tested periodically.
-
-A recommended test is:
-
-1. Start the system while required models are available locally.
-2. Disable Internet access.
-3. Start or restart the retrieval service.
-4. Verify `/health`.
-5. Index a local text file.
-6. Perform semantic search.
-7. Index an image.
-8. Perform image retrieval.
-
-The application should not attempt to contact cloud retrieval APIs during this workflow.
-
----
-
-## 32. Model Portability
-
-A development computer may already contain cached BERT or MobileCLIP model files.
-
-This can hide setup requirements when the project is moved to another machine.
-
-Before release, document:
-
-- Required Python packages
-- Required model names
-- Model download procedure
-- Local model/cache location where applicable
-- Offline startup requirements
-
-Do not claim that a fresh Git clone can immediately operate offline unless all required model resources are included or installed by the setup process.
-
----
-
-## 33. Performance and Stress Testing
-
-The project requirement includes indexing at least 1,000 local files.
-
-A stress test has been completed using 1,000 generated TXT files.
-
-Observed text-record count:
-
-```text
-Before: 12
-After:  1012
-```
-
-The indexed-file listing independently confirmed:
-
-```text
-1000 stress-test files
-```
-
-Measured indexing batches included:
-
-```text
-200 files → 14.81 seconds
-300 files → 25.94 seconds
-450 files → 41.72 seconds
-```
+| Batch | Time |
+|---:|---:|
+| 200 files | 14.81 s |
+| 300 files | 25.94 s |
+| 450 files | 41.72 s |
 
 The initial 50-file batch was used for functional validation and was not timed.
 
-End-to-end semantic search with more than 1,000 text records completed in approximately:
+With more than 1,000 text records stored, one end-to-end semantic search completed in approximately:
 
 ```text
 807 ms
 ```
 
-for:
+for the query:
 
 ```text
 software engineering
 ```
 
-Performance tests should be repeated after major changes to:
+These results were measured in the local development environment and should not be treated as hardware-independent production benchmarks.
 
-- BERT model
-- Chunking
-- ChromaDB configuration
-- Retrieval logic
-- Multimodal ranking
+After major changes to chunking, embeddings, database storage, or ranking logic, re-run performance testing.
 
 ---
 
-## 34. Stress-Test Data
+## 31. Cold Startup Behaviour
 
-Generated stress-test files are development artifacts and should not normally be committed to the repository.
+Cold startup may take more than 30 seconds because the retrieval service must initialize:
 
-For example:
+- ChromaDB
+- BERT
+- MobileCLIP
 
-```text
-stress_test_files/
-```
+A Java-side startup timeout may expire before the Python service is fully ready.
 
-should remain local unless a specific small test fixture is intentionally required by automated testing.
+If this occurs:
 
-Large generated test datasets can unnecessarily increase repository size.
+1. Check whether the Python service is still loading models.
+2. Wait for initialization to complete.
+3. Verify `/health`.
+4. Retry the Java or Flutter operation.
 
-The same rule applies to temporary manual test files such as experimental TXT or image files.
+Possible future improvements include:
 
----
-
-## 35. Common Problem: Retrieval Service Appears Frozen
-
-During startup, the service may appear inactive while loading BERT or MobileCLIP.
-
-Check the console output.
-
-If startup has reached:
-
-```text
-Uvicorn running on http://127.0.0.1:8765
-```
-
-verify health using:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8765/health
-```
-
-If both models are reported as loaded, the backend is ready.
+- Longer startup timeout
+- Model-loading progress display
+- Better service lifecycle management
+- Clearer distinction between slow startup and actual failure
 
 ---
 
-## 36. Common Problem: Connection Refused
+## 32. Offline-First Behaviour
 
-If Java reports that it cannot connect to:
+Normal retrieval operations are performed locally.
 
-```text
-127.0.0.1:8765
-```
+These include:
 
-verify that the Python retrieval service is running.
+- File parsing
+- Metadata extraction
+- BERT inference
+- MobileCLIP inference
+- Vector storage
+- Semantic retrieval
+- Result ranking
 
-Check:
+Initial dependency installation or model download may require Internet access.
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:8765/health
-```
+After setup, normal retrieval should not require a remote semantic-search or inference API.
 
-If this fails, troubleshoot the Python service before troubleshooting Java or Flutter.
+When adding dependencies, review them for:
 
----
-
-## 37. Common Problem: Old Python Code Still Running
-
-If Python source code has been changed but behavior has not changed:
-
-1. Stop the retrieval service.
-2. Confirm the old Python process has exited.
-3. Restart the service.
-4. Re-run `/health`.
-5. Repeat the test.
-
-A running Python process may still contain the previous implementation in memory.
+- Telemetry
+- Remote inference
+- Automatic uploads
+- Cloud API calls
+- Analytics
+- Background network requests
 
 ---
 
-## 38. Common Problem: Java Changes Do Not Appear
+## 33. Security and Privacy Maintenance
 
-If Java source code has changed but CLI or Flutter behavior remains unchanged, rebuild the JAR:
+The repository and release package should not contain:
 
-```powershell
-cd backend
-mvn clean package -DskipTests
-```
-
-Then return to the project root and re-run the CLI.
-
-Flutter may still be invoking an older packaged JAR if the backend was not rebuilt.
-
----
-
-## 39. Common Problem: Search Quality Changes
-
-If semantic ranking becomes unexpectedly poor, check:
-
-- Correct BERT model loaded
-- Correct MobileCLIP model loaded
-- Existing vectors generated using compatible models
-- Chunking configuration
-- Image calibration factor
-- ChromaDB cosine configuration
-- Query preprocessing
-- Whether old test records remain in the database
-
-Use several controlled test files rather than evaluating search quality from only one query.
-
----
-
-## 40. Common Problem: Duplicate Text Results
-
-If the same source document appears multiple times:
-
-- Verify every chunk contains the correct `fileId`.
-- Verify file-level aggregation is enabled.
-- Verify aggregation occurs before final top-K selection.
-
-Chunk IDs should not be treated as separate source files in the final UI.
-
----
-
-## 41. Common Problem: File Exists Is False
-
-An indexed file may return:
-
-```text
-exists = false
-```
-
-when:
-
-- The source file was deleted
-- The source file was moved
-- The indexed path is no longer valid
-- A temporary test file was removed after indexing
-
-The vector record may still remain in ChromaDB.
-
-Delete stale records or re-index the file from its new path.
-
----
-
-## 42. Common Problem: Corrupted Chinese Path Display
-
-Some command-line environments may display Chinese file names incorrectly because of terminal encoding.
-
-This does not necessarily mean that the original file or metadata is corrupted.
-
-Check:
-
-- The actual file path
-- Python Unicode handling
-- Java UTF-8 handling
-- PowerShell/terminal encoding
-
-Avoid modifying stored metadata solely because one terminal renders Unicode incorrectly.
-
----
-
-## 43. Dependency Maintenance
-
-Dependencies should be upgraded carefully.
-
-Avoid upgrading all Java, Python, and Flutter dependencies simultaneously.
-
-For Java dependency changes:
-
-1. Modify `pom.xml`.
-2. Compile.
-3. Run tests.
-4. Generate coverage.
-5. Package the JAR.
-6. Run integration tests.
-
-For Python dependency changes:
-
-1. Update the environment.
-2. Start the service.
-3. Verify BERT.
-4. Verify MobileCLIP.
-5. Verify ChromaDB.
-6. Test indexing and retrieval.
-
-For Flutter dependency changes:
-
-1. Update `pubspec.yaml`.
-2. Run `flutter pub get`.
-3. Run `flutter test`.
-4. Launch the desktop application.
-5. Test the complete workflow.
-
----
-
-## 44. Security Maintenance
-
-Do not commit:
-
-- Passwords
 - API keys
+- Passwords
 - Access tokens
-- Authorization headers
 - Private credentials
+- Authentication cookies
+- Private certificates
+- Private user documents
+- User-generated ChromaDB databases
 
-Review new dependencies and network functionality before integration.
+Before preparing a public release:
 
-The application should not expose the FastAPI service externally unless explicitly required.
-
-The current local binding:
-
-```text
-127.0.0.1
-```
-
-should be preserved for the normal desktop architecture.
+1. Review Git status.
+2. Review generated files.
+3. Review runtime database directories.
+4. Search for secrets.
+5. Confirm that development test data does not contain sensitive content.
 
 ---
 
-## 45. Git Maintenance
+## 34. Dependency Maintenance
 
-Before committing:
+The project uses dependencies from three major ecosystems:
+
+```text
+Maven
+Flutter / pub
+Python / pip
+```
+
+Useful commands include:
+
+### Java
 
 ```powershell
-git status
+mvn dependency:tree
 ```
 
-Review every staged file.
-
-Temporary test data should not be included accidentally.
-
-A typical workflow is:
+### Flutter
 
 ```powershell
-git add <required-files>
-git status
-git commit -m "Describe the change"
-git push origin main
+flutter pub deps --style=compact
 ```
 
-Do not use:
+### Python
 
 ```powershell
-git add .
+pip freeze
 ```
 
-without first checking for generated model files, ChromaDB data, stress-test datasets, or temporary test files.
+When updating dependencies:
+
+1. Record existing versions.
+2. Update one ecosystem at a time where possible.
+3. Rebuild the project.
+4. Run unit tests.
+5. Run integration tests.
+6. Run manual end-to-end testing.
+7. Verify offline behaviour.
+8. Review licensing implications.
+9. Update documentation if behaviour changes.
 
 ---
 
-## 46. Documentation Maintenance
+## 35. Documentation Maintenance
 
-Documentation is stored under:
-
-```text
-docs/
-```
-
-Important documents include:
-
-- Project Requirements Document
-- System Architecture Design
-- API Reference
-- Maintenance Guide
-- End User Manual
-- Accessibility User Guide
-- Demo Script
-- Testing and performance documentation
-
-When implementation changes, documentation should be updated in the same development period where practical.
-
-Important values that should remain synchronized across documents include:
+Important project documentation includes:
 
 ```text
-CHUNK_SIZE
-CHUNK_OVERLAP
-CHUNK_SEARCH_MULTIPLIER
-IMAGE_SCORE_CALIBRATION
-supported file formats
-API endpoints
-CLI commands
+README.md
+docs/System_Architecture_Design.md
+docs/API_Reference.md
+docs/Testing_Report.md
+docs/Maintenance_Guide.md
+docs/End_User_Manual.md
+docs/Accessibility_User_Guide.md
+docs/Open_Source_Compliance_Report.md
+docs/Environment_Setup_Report.md
+docs/Risk_Management_Plan.md
+docs/PRD.md
+docs/Demo_Script.md
 ```
+
+Documentation should be updated when changes affect:
+
+- Architecture
+- Supported file types
+- API endpoints
+- Models
+- Vector storage
+- Chunking parameters
+- Ranking parameters
+- Setup instructions
+- Testing results
+- Accessibility behaviour
+- Release scope
+
+Documentation should describe the actual implementation rather than planned functionality.
 
 ---
 
-## 47. Cross-Platform Maintenance
+## 36. Recommended Change Workflow
 
-Flutter supports desktop targets including:
+For significant maintenance changes:
 
-- Windows
-- macOS
-- Linux
+```text
+Create change
+     ↓
+Build affected component
+     ↓
+Run unit tests
+     ↓
+Start local retrieval service
+     ↓
+Run integration tests
+     ↓
+Run manual end-to-end test
+     ↓
+Review performance if relevant
+     ↓
+Update documentation
+     ↓
+Commit changes
+```
 
-The current project has been developed and functionally validated on Windows.
-
-When macOS or Linux hardware or environments become available, verify:
-
-- Flutter desktop build
-- Java availability
-- Python startup
-- File path handling
-- Local process invocation
-- FastAPI startup
-- ChromaDB persistence
-- BERT loading
-- MobileCLIP loading
-- File selection
-- File opening
-
-Do not report a platform as fully tested until the complete runtime workflow has been validated on that platform.
+Avoid combining unrelated dependency changes, architecture changes, and feature changes in a single maintenance step where possible.
 
 ---
 
-## 48. Pre-Release Maintenance Checklist
+## 37. Final Maintenance Checklist
 
-Before a final release, verify:
+Before considering a major change complete, confirm:
 
-```text
-[ ] Java backend builds successfully
-[ ] Maven tests pass
-[ ] JaCoCo report generated
-[ ] Python retrieval service starts
-[ ] /health returns ok
-[ ] BERT loads successfully
-[ ] MobileCLIP loads successfully
-[ ] TXT indexing works
-[ ] PDF indexing works
-[ ] DOCX indexing works
-[ ] JPG/JPEG indexing works
-[ ] PNG indexing works
-[ ] Long-document retrieval works
-[ ] Text semantic search works
-[ ] Image semantic search works
-[ ] Multimodal ranking works
-[ ] File-level aggregation works
-[ ] ChromaDB persistence works
-[ ] Delete operation works
-[ ] Flutter tests pass
-[ ] Flutter application launches
-[ ] Search results display correctly
-[ ] Local files can be opened
-[ ] Offline retrieval works
-[ ] Accessibility checks completed
-[ ] Documentation matches implementation
-[ ] Temporary test data is not staged
-```
+- The project builds successfully.
+- Backend tests pass.
+- Required integration tests pass.
+- Flutter tests pass where applicable.
+- The FastAPI service starts successfully.
+- BERT loads successfully.
+- MobileCLIP loads successfully.
+- ChromaDB remains accessible.
+- Text indexing works.
+- Image indexing works.
+- Semantic search works.
+- File listing works.
+- File deletion works.
+- Windows frontend behaviour remains functional.
+- Accessibility-related UI behaviour remains functional.
+- Documentation reflects the updated implementation.
+- No temporary development data has been unintentionally committed.
 
 ---
 
-## 49. Key Configuration Values
+## 38. Conclusion
 
-The current retrieval configuration includes:
+The final project uses a modular local architecture consisting of a Flutter Windows frontend, Java backend, Python retrieval service, BERT, MobileCLIP, and ChromaDB.
 
-```text
-CHUNK_SIZE = 400
-CHUNK_OVERLAP = 50
-CHUNK_SEARCH_MULTIPLIER = 5
-IMAGE_SCORE_CALIBRATION = 1.25
-```
+The most important maintenance principle is to preserve compatibility across these layers.
 
-These values affect system behavior and should be treated as part of the retrieval configuration.
+Changes to parsing, embedding models, API structures, vector storage, chunking, or ranking can affect multiple components and should therefore be validated through both automated and end-to-end testing.
 
-Any changes should be tested and documented.
-
----
-
-## 50. Conclusion
-
-The current project has evolved from an early Java-only retrieval prototype into a local multimodal retrieval system using:
-
-```text
-Flutter
-Java
-FastAPI
-BERT
-MobileCLIP
-ChromaDB
-```
-
-Future maintenance should preserve the modular and offline-first design.
-
-The most important maintenance principles are:
-
-1. Keep frontend, Java, Python, and storage interfaces synchronized.
-2. Re-index vectors when embedding compatibility changes.
-3. Validate retrieval quality after ranking or chunking changes.
-4. Preserve local-only processing during normal operation.
-5. Keep generated data and model files out of Git where appropriate.
-6. Run automated and integration tests after major changes.
-7. Keep documentation synchronized with the actual implementation.
-
-Following these practices will help maintain a stable, testable, and extensible offline multimodal retrieval system.
+By maintaining synchronized code, tests, runtime configuration, and documentation, the system can continue to be extended while preserving its offline-first multimodal retrieval workflow.

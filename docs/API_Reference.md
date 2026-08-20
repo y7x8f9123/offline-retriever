@@ -2,18 +2,18 @@
 
 ## 1. Overview
 
-This document describes the main application and retrieval APIs of the Offline Accessible Multimodal Local Content Retrieval System.
+This document describes the main application interfaces and retrieval APIs of the Offline Accessible Multimodal Local Content Retrieval System.
 
-The current implementation uses three main layers:
+The final implementation consists of three main layers:
 
-- Flutter frontend
+- Flutter Windows desktop frontend
 - Java backend and command-line bridge
 - Local Python FastAPI retrieval service
 
 The retrieval service integrates:
 
 - BERT text embeddings
-- MobileCLIP image/text embeddings
+- MobileCLIP image and text embeddings
 - ChromaDB persistent vector storage
 - Long-document chunking
 - File-level aggregation
@@ -25,13 +25,47 @@ The local retrieval service listens on:
 http://127.0.0.1:8765
 ```
 
-The system is designed for local execution and does not require a remote retrieval server during normal operation after the required models and dependencies are available locally.
+The system is designed for local execution.
+
+Once the required dependencies and machine-learning model resources are available locally, normal indexing and retrieval do not require a remote semantic-search or inference server.
 
 ---
 
-# 2. Java Backend Entry Point
+## 2. Architecture and API Flow
 
-## 2.1 BackendCli
+The main communication flow is:
+
+```text
+Flutter Frontend
+       |
+       v
+Java Backend / BackendCli
+       |
+       v
+Local FastAPI Service
+127.0.0.1:8765
+       |
+       +-------------------+
+       |                   |
+       v                   v
+     BERT              MobileCLIP
+Text Embedding       Image / Text
+       |                   |
+       +---------+---------+
+                 |
+                 v
+              ChromaDB
+```
+
+The Java backend acts as the bridge between the desktop application and the local retrieval service.
+
+The Python service performs machine-learning inference, semantic retrieval, vector storage, result aggregation, and multimodal ranking.
+
+---
+
+# 3. Java Backend Entry Point
+
+## 3.1 BackendCli
 
 **Package**
 
@@ -39,9 +73,9 @@ The system is designed for local execution and does not require a remote retriev
 com.offlineretriever
 ```
 
-`BackendCli` is the main command-line bridge used by the desktop application and for local testing.
+`BackendCli` provides the primary command-line interface for indexing, searching, listing, and deleting indexed content.
 
-The executable JAR accepts four main commands:
+The executable backend supports four main commands:
 
 ```text
 index
@@ -50,7 +84,11 @@ list
 delete
 ```
 
-### Index Command
+---
+
+## 3.2 Index Command
+
+Syntax:
 
 ```text
 java -jar backend-1.0-SNAPSHOT.jar index <file1> [file2] ...
@@ -58,29 +96,33 @@ java -jar backend-1.0-SNAPSHOT.jar index <file1> [file2] ...
 
 Indexes one or more supported local files.
 
-Supported document types include:
+Supported text document formats:
 
-- TXT
-- PDF
-- DOCX
+```text
+TXT
+PDF
+DOCX
+```
 
-Supported image types include:
+Supported image formats:
 
-- PNG
-- JPG
-- JPEG
+```text
+JPG
+JPEG
+PNG
+```
 
-Text files are parsed in Java and then forwarded to the local Python retrieval service.
+Text documents are parsed by the Java backend and their extracted content is sent to the local Python text-indexing API.
 
-Images are forwarded directly to the image indexing endpoint.
+Images are routed to the image-indexing API.
 
 Example:
 
-```text
-java -jar backend-1.0-SNAPSHOT.jar index report.pdf notes.txt image.png
+```powershell
+java -jar backend\target\backend-1.0-SNAPSHOT.jar index report.pdf notes.txt image.png
 ```
 
-Example response:
+Example response structure:
 
 ```json
 {
@@ -93,32 +135,34 @@ Example response:
 }
 ```
 
-Files that do not exist, are unsupported, or cannot be parsed are added to the `skipped` list.
+Files that do not exist, use unsupported formats, or cannot be processed may appear in the `skipped` collection.
 
 ---
 
-### Search Command
+## 3.3 Search Command
+
+Syntax:
 
 ```text
 java -jar backend-1.0-SNAPSHOT.jar search <query> <topK>
 ```
 
-Performs semantic search across indexed text documents and images.
-
 Example:
 
-```text
-java -jar backend-1.0-SNAPSHOT.jar search "software engineering" 5
+```powershell
+java -jar backend\target\backend-1.0-SNAPSHOT.jar search "software engineering" 5
 ```
 
-Example result structure:
+The search operation performs semantic retrieval across both indexed text documents and images.
+
+Example result:
 
 ```json
 [
   {
     "id": "record-id",
     "fileName": "example.txt",
-    "filePath": "C:\\example\\example.txt",
+    "filePath": "C:\\documents\\example.txt",
     "fileType": "txt",
     "contentType": "text",
     "score": 0.42
@@ -126,38 +170,44 @@ Example result structure:
 ]
 ```
 
-The final result score may represent:
+The score represents:
 
 - BERT cosine similarity for text results
 - Calibrated MobileCLIP cosine similarity for image results
 
 ---
 
-### List Command
+## 3.4 List Command
 
-```text
-java -jar backend-1.0-SNAPSHOT.jar list
+Syntax:
+
+```powershell
+java -jar backend\target\backend-1.0-SNAPSHOT.jar list
 ```
 
-Returns indexed files stored in the local retrieval database.
+Returns files currently indexed in the local retrieval database.
 
-Chunked text documents are returned once at file level rather than once per chunk.
+Long text documents may contain multiple stored chunks, but the listing is aggregated to file level so that one source document appears once.
 
 ---
 
-### Delete Command
+## 3.5 Delete Command
 
-```text
-java -jar backend-1.0-SNAPSHOT.jar delete <id>
+Syntax:
+
+```powershell
+java -jar backend\target\backend-1.0-SNAPSHOT.jar delete <file-id>
 ```
 
-Deletes an indexed file from the local vector database.
+Deletes the indexed representation of the selected file from ChromaDB.
 
-For chunked text documents, all associated chunk records are deleted using the original file identifier.
+For chunked text documents, all records associated with the original file identifier are removed.
+
+Deleting an index entry does not delete the original source file from the Windows file system.
 
 ---
 
-# 3. Local Retrieval Service
+# 4. Local Retrieval Service
 
 The local retrieval service is implemented using FastAPI.
 
@@ -167,22 +217,24 @@ Base address:
 http://127.0.0.1:8765
 ```
 
-The main endpoints are:
+Main endpoints:
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/health` | Check backend and model status |
+| GET | `/health` | Check service, database, and model status |
 | GET | `/files` | List indexed files |
-| POST | `/index-text` | Index extracted text content |
+| POST | `/index-text` | Index extracted document text |
 | POST | `/index-image` | Index a local image |
 | POST | `/search` | Perform multimodal semantic search |
-| POST | `/delete` | Delete an indexed file |
+| POST | `/delete` | Remove indexed content |
+
+The service is bound to the local loopback interface and is not intended to operate as a public network API.
 
 ---
 
-# 4. GET /health
+# 5. GET /health
 
-Checks whether the local retrieval service is running and whether the main machine-learning components are loaded.
+Checks whether the local retrieval service is running and whether the main machine-learning components have loaded.
 
 ## Request
 
@@ -190,9 +242,7 @@ Checks whether the local retrieval service is running and whether the main machi
 GET /health
 ```
 
-## Response
-
-Example:
+## Example Response
 
 ```json
 {
@@ -206,9 +256,9 @@ Example:
 
 ## Response Fields
 
-### status
+### `status`
 
-Service status.
+Indicates service availability.
 
 Typical value:
 
@@ -216,29 +266,29 @@ Typical value:
 ok
 ```
 
-### text_records
+### `text_records`
 
-Number of records currently stored in the text ChromaDB collection.
+Number of vector records currently stored in the text ChromaDB collection.
 
-Because long documents are chunked, this value represents vector records or chunks rather than strictly the number of source files.
+Because long documents are chunked, this value may exceed the number of original source files.
 
-### image_records
+### `image_records`
 
 Number of indexed image records.
 
-### bert_loaded
+### `bert_loaded`
 
-Indicates whether the BERT text embedding engine has loaded successfully.
+Indicates whether the BERT text embedding model has loaded successfully.
 
-### mobileclip_loaded
+### `mobileclip_loaded`
 
 Indicates whether the MobileCLIP model has loaded successfully.
 
 ---
 
-# 5. GET /files
+# 6. GET /files
 
-Returns indexed files stored in the local vector database.
+Returns files indexed in the local vector database.
 
 ## Request
 
@@ -246,9 +296,7 @@ Returns indexed files stored in the local vector database.
 GET /files
 ```
 
-## Response
-
-Example:
+## Example Response
 
 ```json
 [
@@ -269,13 +317,13 @@ Example:
 
 ## Behaviour
 
-For text documents split into multiple chunks, the endpoint returns only one file-level result.
+For text documents divided into multiple chunks, `/files` returns one logical file-level result.
 
-The `exists` field is calculated at request time and indicates whether the original local file is still present.
+The `exists` field indicates whether the original local source file is currently available at the stored path.
 
 ---
 
-# 6. POST /index-text
+# 7. POST /index-text
 
 Indexes textual content extracted from a TXT, PDF, or DOCX file.
 
@@ -286,7 +334,7 @@ POST /index-text
 Content-Type: application/json
 ```
 
-Request body:
+Example body:
 
 ```json
 {
@@ -297,11 +345,11 @@ Request body:
 
 ## Validation
 
-The endpoint verifies:
+The endpoint validates:
 
-- The file exists
-- The content is not empty
-- The file extension is supported
+- File existence
+- Non-empty extracted content
+- Supported file extension
 
 Supported extensions:
 
@@ -311,30 +359,30 @@ pdf
 docx
 ```
 
-Unsupported files return HTTP 400.
+Unsupported files may return HTTP 400.
 
-Missing files return HTTP 404.
+Missing source files may return HTTP 404.
 
 ---
 
-## Long-Document Chunking
+## 7.1 Long-Document Chunking
 
-Text is divided using the current configuration:
+Long textual content is divided using:
 
 ```text
 CHUNK_SIZE = 400 words
 CHUNK_OVERLAP = 50 words
 ```
 
-Each chunk is embedded independently.
+Each chunk is embedded independently using BERT.
 
-The chunk identifier format is:
+Chunk identifiers follow the pattern:
 
 ```text
 <file_id>_chunk_<index>
 ```
 
-Each chunk stores metadata including:
+Chunk metadata includes information such as:
 
 ```text
 fileId
@@ -348,9 +396,9 @@ lastModified
 contentType
 ```
 
-## Response
+---
 
-Example:
+## 7.2 Example Response
 
 ```json
 {
@@ -366,7 +414,7 @@ The exact embedding dimension depends on the active BERT model.
 
 ---
 
-# 7. POST /index-image
+# 8. POST /index-image
 
 Indexes a local image using MobileCLIP.
 
@@ -377,7 +425,7 @@ POST /index-image
 Content-Type: application/json
 ```
 
-Request body:
+Example body:
 
 ```json
 {
@@ -385,7 +433,7 @@ Request body:
 }
 ```
 
-## Supported Formats
+Supported formats:
 
 ```text
 jpg
@@ -393,19 +441,18 @@ jpeg
 png
 ```
 
-## Processing
+## Processing Flow
 
 The endpoint:
 
-1. Verifies the file exists
-2. Validates the extension
-3. Generates a MobileCLIP image embedding
-4. Builds file metadata
-5. Stores the embedding in the image ChromaDB collection
+1. Verifies that the file exists.
+2. Validates the image extension.
+3. Loads and processes the image.
+4. Generates a MobileCLIP image embedding.
+5. Builds file metadata.
+6. Stores the embedding in the image ChromaDB collection.
 
-## Response
-
-Example:
+## Example Response
 
 ```json
 {
@@ -420,9 +467,9 @@ The exact embedding dimension depends on the active MobileCLIP model.
 
 ---
 
-# 8. POST /search
+# 9. POST /search
 
-Performs semantic search across both text documents and images.
+Performs semantic retrieval across indexed text documents and images.
 
 ## Request
 
@@ -431,7 +478,7 @@ POST /search
 Content-Type: application/json
 ```
 
-Request body:
+Example body:
 
 ```json
 {
@@ -442,29 +489,29 @@ Request body:
 
 ## Validation
 
-Empty queries return HTTP 400.
+An empty query is invalid.
 
-`top_k` is forced to a minimum value of 1.
+`top_k` is constrained to a minimum useful value.
 
 ---
 
-## Text Search Flow
+## 9.1 Text Search Flow
 
-The text search pipeline performs:
+Text search performs:
 
 1. BERT query embedding
-2. ChromaDB similarity search
-3. Retrieval of multiple chunk-level candidates
+2. ChromaDB cosine-similarity search
+3. Retrieval of chunk-level candidates
 4. File-level aggregation
-5. Selection of the highest-scoring chunk for each file
+5. Selection of the highest-scoring chunk for each source file
 
-The number of chunk candidates is calculated using:
+The candidate count is derived from:
 
 ```text
 chunk_search_k = top_k × CHUNK_SEARCH_MULTIPLIER
 ```
 
-Current value:
+Current configuration:
 
 ```text
 CHUNK_SEARCH_MULTIPLIER = 5
@@ -472,14 +519,14 @@ CHUNK_SEARCH_MULTIPLIER = 5
 
 ---
 
-## Image Search Flow
+## 9.2 Image Search Flow
 
-If image records exist:
+If indexed image records are available:
 
-1. MobileCLIP converts the text query into an embedding
-2. The image ChromaDB collection is searched
-3. Image results are returned using cosine similarity
-4. Image scores are calibrated before fusion
+1. MobileCLIP converts the natural-language query into a text embedding.
+2. The image ChromaDB collection is searched.
+3. Cosine-similarity scores are obtained.
+4. Image scores are calibrated before multimodal fusion.
 
 Current calibration:
 
@@ -487,7 +534,7 @@ Current calibration:
 IMAGE_SCORE_CALIBRATION = 1.25
 ```
 
-The final image score is:
+Conceptually:
 
 ```text
 calibrated_score =
@@ -496,20 +543,19 @@ raw_mobileclip_similarity × 1.25
 
 ---
 
-## Multimodal Fusion
+## 9.3 Multimodal Fusion
 
-Text and image results are combined after:
+Before final ranking:
 
-- Text chunk aggregation
-- Image score calibration
+- Text chunks are aggregated to file level.
+- Image similarity scores are calibrated.
+- Text and image results are combined.
+- Results are sorted by descending score.
+- The requested top-K results are returned.
 
-The final combined list is sorted by descending score.
+---
 
-The requested top-K results are then returned.
-
-## Response
-
-Example:
+## 9.4 Example Response
 
 ```json
 [
@@ -538,11 +584,11 @@ Example:
 ]
 ```
 
-The Java bridge may expose only the fields required by the frontend.
+The Java bridge may expose only the fields required by the desktop application.
 
 ---
 
-# 9. POST /delete
+# 10. POST /delete
 
 Deletes an indexed file.
 
@@ -553,7 +599,7 @@ POST /delete
 Content-Type: application/json
 ```
 
-Request body:
+Example body:
 
 ```json
 {
@@ -574,12 +620,12 @@ are removed.
 For images:
 
 ```text
-the image record with the matching id
+the image record matching the requested id
 ```
 
 is removed.
 
-## Response
+## Example Response
 
 ```json
 {
@@ -588,21 +634,21 @@ is removed.
 }
 ```
 
+The operation affects the local index only.
+
+The original user file is not deleted from the Windows file system.
+
 ---
 
-# 10. ChromaStore API
+# 11. ChromaStore API
 
-The Python storage layer is implemented by:
+The Python storage layer uses:
 
 ```python
 ChromaStore
 ```
 
-The database path is:
-
-```text
-<project-root>/chroma_db
-```
+The runtime database is stored under a local ChromaDB directory generated by the application.
 
 Two persistent collections are used:
 
@@ -615,7 +661,7 @@ Both collections use cosine similarity.
 
 ---
 
-## 10.1 add_text_file
+## 11.1 `add_text_file`
 
 ```python
 add_text_file(
@@ -628,11 +674,11 @@ add_text_file(
 
 Stores or updates one text vector record.
 
-For chunked documents, each chunk uses a unique `record_id`.
+Chunked documents use a different `record_id` for each chunk.
 
 ---
 
-## 10.2 add_image_file
+## 11.2 `add_image_file`
 
 ```python
 add_image_file(
@@ -646,7 +692,7 @@ Stores or updates one image vector record.
 
 ---
 
-## 10.3 search_text
+## 11.3 `search_text`
 
 ```python
 search_text(
@@ -657,7 +703,7 @@ search_text(
 
 Queries the text ChromaDB collection.
 
-Returns:
+Returned ChromaDB data includes structures such as:
 
 ```text
 ids
@@ -667,7 +713,7 @@ distances
 
 ---
 
-## 10.4 search_images
+## 11.4 `search_images`
 
 ```python
 search_images(
@@ -676,11 +722,11 @@ search_images(
 ) -> dict
 ```
 
-Queries the image collection using an embedding generated from the text query.
+Queries the image ChromaDB collection using a MobileCLIP-compatible query embedding.
 
 ---
 
-## 10.5 delete_file
+## 11.5 `delete_file`
 
 ```python
 delete_file(
@@ -688,11 +734,11 @@ delete_file(
 ) -> None
 ```
 
-Deletes all text chunks associated with the supplied file ID and also attempts to delete a matching image record.
+Deletes text chunks associated with the supplied file identifier and removes a matching image record where applicable.
 
 ---
 
-## 10.6 get_all_files
+## 11.6 `get_all_files`
 
 ```python
 get_all_files() -> list[dict]
@@ -700,11 +746,11 @@ get_all_files() -> list[dict]
 
 Returns indexed files.
 
-Text chunks are deduplicated using the original file ID so that one source document appears once.
+Text chunks are deduplicated using the original file identifier so that one source document appears once.
 
 ---
 
-## 10.7 text_count
+## 11.7 `text_count`
 
 ```python
 text_count() -> int
@@ -712,11 +758,11 @@ text_count() -> int
 
 Returns the number of text vector records stored in ChromaDB.
 
-This may exceed the number of text files because one long document may contain multiple chunks.
+The count may exceed the number of source files because long documents may contain multiple chunks.
 
 ---
 
-## 10.8 image_count
+## 11.8 `image_count`
 
 ```python
 image_count() -> int
@@ -726,9 +772,9 @@ Returns the number of indexed image records.
 
 ---
 
-# 11. BERT Text Embedding API
+# 12. BERT Text Embedding API
 
-The current main text retrieval pipeline uses the Python BERT embedding engine.
+The text retrieval pipeline uses a local BERT-based embedding engine.
 
 Typical operation:
 
@@ -736,30 +782,36 @@ Typical operation:
 embedding = text_engine.embed(text)
 ```
 
-The output is a numerical embedding suitable for cosine-similarity retrieval.
+The output is a numerical embedding used for cosine-similarity retrieval.
 
-The same model is used for:
+Compatible BERT embedding logic must be used for both:
 
 - Document chunks
 - Search queries
 
-This ensures documents and text queries are represented in a compatible semantic space.
+This ensures indexed text and queries exist in the same semantic vector space.
 
 ---
 
-# 12. MobileCLIP API
+# 13. MobileCLIP API
 
-The image retrieval pipeline uses MobileCLIP.
+MobileCLIP provides image and text embeddings for image retrieval.
 
-## Image Embedding
+## 13.1 Image Embedding
+
+Typical operation:
 
 ```python
 image_engine.embed_image(file_path)
 ```
 
-Generates an image embedding.
+Generates a numerical embedding for a local image.
 
-## Text Embedding
+---
+
+## 13.2 Text Embedding
+
+Typical operation:
 
 ```python
 image_engine.embed_text(query)
@@ -767,25 +819,27 @@ image_engine.embed_text(query)
 
 Generates a text embedding in the MobileCLIP multimodal embedding space.
 
-This allows natural-language text queries to retrieve semantically related images.
+This allows natural-language queries to retrieve semantically related images.
 
 ---
 
-# 13. Java Parsing APIs
+# 14. Java Parsing APIs
 
-The Java parsing layer is still responsible for local text extraction.
+The Java parsing layer handles local document text extraction before BERT indexing.
 
-## Parser
+## 14.1 Parser Interface
+
+Conceptual interface:
 
 ```java
 String parse(String filePath);
 ```
 
-Provides a shared abstraction for parser implementations.
+The parser abstraction provides a common entry point for supported text formats.
 
 ---
 
-## TextParser
+## 14.2 TextParser
 
 Handles:
 
@@ -793,43 +847,43 @@ Handles:
 .txt
 ```
 
-and returns textual content.
+and returns textual content from plain-text files.
 
 ---
 
-## DocumentParser
+## 14.3 DocumentParser
 
-Handles:
+Handles supported document formats including:
 
 ```text
 .pdf
 .docx
 ```
 
-and extracts text from supported documents.
+and extracts textual content using the configured document-processing libraries.
 
 ---
 
-## ParserFactory
+## 14.4 ParserFactory
 
-Typical mappings include:
+Typical routing:
 
-| Extension | Processing |
+| Extension | Processing Route |
 |---|---|
 | `.txt` | TextParser |
 | `.pdf` | DocumentParser |
 | `.docx` | DocumentParser |
-| `.jpg` | Image indexing route |
-| `.jpeg` | Image indexing route |
-| `.png` | Image indexing route |
+| `.jpg` | Image indexing |
+| `.jpeg` | Image indexing |
+| `.png` | Image indexing |
 
-Image files are routed to MobileCLIP-based indexing instead of BERT text parsing in the current main indexing flow.
+Images are routed to MobileCLIP-based indexing rather than BERT text parsing.
 
 ---
 
-# 14. File Metadata
+# 15. File Metadata
 
-Indexed file metadata contains fields including:
+Indexed file metadata includes fields such as:
 
 ```text
 fileName
@@ -848,223 +902,193 @@ chunkIndex
 chunkCount
 ```
 
-This metadata is used for:
+Metadata is used for:
 
-- Displaying result information
-- Opening local files
+- Search-result presentation
+- Opening original local files
 - File-level aggregation
-- Deleting all chunks belonging to a document
-- Checking whether indexed files still exist
+- Indexed-file listing
+- Deleting all chunks belonging to one document
+- Checking whether a source file still exists
 
 ---
 
-# 15. File Identifier Generation
+# 16. File Identifier Generation
 
-The retrieval service creates deterministic file identifiers using:
+The retrieval system uses deterministic file identifiers derived from the normalized local file path.
+
+Conceptually:
 
 ```text
 SHA-256(normalized absolute file path)
 ```
 
-Conceptually:
+For example:
 
 ```python
 normalized_path = resolved_path.lower()
 file_id = sha256(normalized_path)
 ```
 
-This provides a stable local identifier for a given path.
+This provides a stable identifier for a file at a particular local path.
 
-Chunk identifiers are generated using:
+Chunk identifiers follow:
 
 ```text
-<file_id>_chunk_<chunk_index>
+<file_id>_chunk_<index>
 ```
+
+This allows all chunk records belonging to the same logical document to be grouped and deleted together.
 
 ---
 
-# 16. Similarity Scoring
+# 17. Search Result Fields
 
-Both ChromaDB collections use cosine space.
+A search result may include:
 
-The returned ChromaDB distance is converted to similarity using:
+| Field | Description |
+|---|---|
+| `id` | Logical file identifier |
+| `recordId` | Individual vector-record identifier |
+| `fileName` | Source filename |
+| `filePath` | Original local path |
+| `fileType` | File extension/type |
+| `contentType` | `text` or `image` |
+| `chunkIndex` | Matching text chunk index, or image sentinel value |
+| `rawScore` | Similarity before calibration |
+| `score` | Final ranking score |
 
-```text
-similarity = 1.0 - distance
-```
+Not every layer is required to expose every internal field.
 
-For text:
-
-```text
-final score = raw BERT similarity
-```
-
-For images:
-
-```text
-final score =
-raw MobileCLIP similarity × 1.25
-```
-
-Negative similarity values are valid and indicate low semantic similarity.
+The Java bridge and Flutter frontend may use a simplified result representation.
 
 ---
 
-# 17. Error Handling
+# 18. Error Handling
 
-The retrieval API may return errors including:
+API clients should account for errors including:
 
-### HTTP 400
+- Missing local files
+- Unsupported extensions
+- Empty document content
+- Empty search queries
+- Local service unavailable
+- Model initialization failure
+- ChromaDB access failure
+- Invalid request data
 
-Examples:
-
-```text
-Text content is empty.
-Unsupported text file type.
-Unsupported image file type.
-Query cannot be empty.
-No text chunks were generated.
-```
-
-### HTTP 404
-
-Example:
-
-```text
-File not found.
-```
-
-Java-side failures are reported through stderr and a non-zero process exit code.
+HTTP error responses from the Python service should be handled by the Java bridge and presented to the frontend in a user-understandable way where appropriate.
 
 ---
 
-# 18. Persistence Behaviour
+# 19. Service Startup Considerations
 
-ChromaDB uses persistent local storage.
+The FastAPI service may take additional time during cold startup because it initializes:
 
-The database remains available between service restarts.
+- ChromaDB
+- BERT
+- MobileCLIP
 
-The local database directory is excluded from source control because indexed vectors are runtime data rather than source code.
+Clients should not assume immediate availability after process startup.
 
-Downloaded local model directories are also excluded from Git source control.
+The `/health` endpoint should be used to verify readiness before performing indexing or search operations.
 
----
-
-# 19. Current Retrieval Configuration
-
-Important current parameters include:
-
-```text
-CHUNK_SIZE = 400
-CHUNK_OVERLAP = 50
-CHUNK_SEARCH_MULTIPLIER = 5
-IMAGE_SCORE_CALIBRATION = 1.25
-```
-
-Changing these values can affect:
-
-- Number of stored vectors
-- Indexing time
-- Search recall
-- Chunk boundary behaviour
-- Multimodal ranking
-
-Changes should therefore be validated before release.
+Cold-start behaviour is an important integration consideration because model loading may take longer than normal API request processing.
 
 ---
 
-# 20. Performance Validation
+# 20. API Compatibility Rules
 
-The retrieval system was tested with 1,000 generated TXT files.
+When changing the local API:
 
-Observed results included:
+1. Update the Python request or response model.
+2. Update the Java client.
+3. Rebuild the Java backend.
+4. Restart the Python retrieval service.
+5. Run integration tests.
+6. Run CLI tests.
+7. Run the Windows Flutter workflow.
+8. Update this API reference.
 
-```text
-Text records before test: 12
-Text records after test: 1012
-Stress-test files listed: 1000
-```
-
-Measured indexing times included:
-
-| Batch | Time |
-|---:|---:|
-| 200 files | 14.81 s |
-| 300 files | 25.94 s |
-| 450 files | 41.72 s |
-
-The initial 50-file batch was used as a functional validation batch and was not timed.
-
-An end-to-end semantic search over more than 1,000 text records completed in approximately:
-
-```text
-807 ms
-```
-
-for the query:
-
-```text
-software engineering
-```
-
-This timing includes Java CLI execution, HTTP communication, query embedding, vector search, multimodal processing, ranking, and output handling.
+Changes to field names, types, endpoint paths, or response structures should not be made independently in only one layer.
 
 ---
 
-# 21. Deprecated Prototype Components
+# 21. Offline and Security Considerations
 
-Some Java classes from earlier development stages remain useful for unit testing, demonstration, or modular experimentation.
+The API is intended for local application use.
 
-Examples include:
-
-```text
-VectorStore
-Retriever
-SimilarityCalculator
-TextEmbeddingEngine
-RetrievalPipeline
-```
-
-Earlier versions used:
-
-- Deterministic token hashing
-- In-memory vector storage
-- Java-only similarity search
-
-These are no longer the primary production retrieval path.
-
-The current main retrieval path is:
+The service binds to:
 
 ```text
-Flutter
-  ↓
-Java BackendCli
-  ↓
-Local FastAPI Service
-  ↓
-BERT / MobileCLIP
-  ↓
-ChromaDB
+127.0.0.1
 ```
 
-Documentation and final deployment should therefore describe the Python/ChromaDB retrieval service as the main implementation.
+rather than a public network interface.
+
+Normal operations include:
+
+- Local parsing
+- Local embedding inference
+- Local vector storage
+- Local semantic search
+- Local result ranking
+
+The API should not introduce unnecessary remote network dependencies.
+
+User files, paths, extracted content, embeddings, and database records should be treated as local application data.
 
 ---
 
-# 22. Summary
+# 22. Platform Scope
 
-The current system exposes a complete local multimodal retrieval API.
+The final application release targets Windows Desktop.
 
-The main functional flow includes:
+The API architecture itself is based on local Java/Python communication, but the final project was functionally validated on Windows.
 
-- Java-based local file parsing
-- FastAPI-based retrieval service
-- BERT text embeddings
-- MobileCLIP image retrieval
-- Long-document chunking
-- ChromaDB persistent storage
-- File-level result aggregation
-- Calibrated multimodal ranking
-- Local indexing, listing, searching, and deletion
+Linux and macOS runtime behaviour are outside the validated final release scope.
 
-The API remains fully local during normal operation and is designed to support the final desktop application workflow.
+---
+
+# 23. Related Documentation
+
+Additional implementation details are available in:
+
+```text
+docs/System_Architecture_Design.md
+docs/Testing_Report.md
+docs/Maintenance_Guide.md
+docs/End_User_Manual.md
+docs/Accessibility_User_Guide.md
+docs/Open_Source_Compliance_Report.md
+```
+
+The project root `README.md` contains the primary project overview and quick-start instructions.
+
+---
+
+# 24. Conclusion
+
+The final API architecture connects the Flutter Windows desktop interface, Java backend, local FastAPI retrieval service, BERT, MobileCLIP, and ChromaDB.
+
+The primary local API supports:
+
+```text
+health checking
+file listing
+text indexing
+image indexing
+multimodal search
+indexed-file deletion
+```
+
+The Java CLI provides a second interface for:
+
+```text
+index
+search
+list
+delete
+```
+
+Together, these interfaces provide the communication layer required for the final offline-first multimodal retrieval workflow.
