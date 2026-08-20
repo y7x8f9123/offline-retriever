@@ -1,8 +1,9 @@
 package com.offlineretriever.io;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -11,26 +12,48 @@ import org.junit.Test;
 public class FileScannerTest {
 
     @Test
-    public void shouldScanCurrentFolder() {
+    public void shouldScanFolder() throws Exception {
 
-        FileScanner scanner = new FileScanner();
+        Path tempDir = Files.createTempDirectory(
+                "file-scanner-test"
+        );
 
-        List<Path> files = scanner.scan(".");
+        try {
+            Path txt = Files.createFile(
+                    tempDir.resolve("sample.txt")
+            );
 
-        assertFalse(files.isEmpty());
+            Path pdf = Files.createFile(
+                    tempDir.resolve("sample.pdf")
+            );
 
-        boolean hasTxt = files.stream()
-                .anyMatch(path -> path.getFileName().toString().equals("sample.txt"));
+            Path docx = Files.createFile(
+                    tempDir.resolve("sample.docx")
+            );
 
-        boolean hasPdf = files.stream()
-                .anyMatch(path -> path.getFileName().toString().equals("sample.pdf"));
+            FileScanner scanner = new FileScanner();
 
-        boolean hasDocx = files.stream()
-                .anyMatch(path -> path.getFileName().toString().equals("sample.docx"));
+            List<Path> files = scanner.scan(
+                    tempDir.toString()
+            );
 
-        assertTrue(hasTxt);
-        assertTrue(hasPdf);
-        assertTrue(hasDocx);
+            assertEquals(3, files.size());
+            assertTrue(files.contains(txt));
+            assertTrue(files.contains(pdf));
+            assertTrue(files.contains(docx));
+
+        } finally {
+            Files.walk(tempDir)
+                    .sorted((a, b) ->
+                            b.getNameCount()
+                                    - a.getNameCount())
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (Exception ignored) {
+                        }
+                    });
+        }
     }
 
     @Test(expected = RuntimeException.class)
@@ -38,6 +61,8 @@ public class FileScannerTest {
 
         FileScanner scanner = new FileScanner();
 
-        scanner.scan("missing-folder");
+        scanner.scan(
+                "missing-folder-" + System.nanoTime()
+        );
     }
 }
