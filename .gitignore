@@ -29,3 +29,9 @@ chroma_db/
 
 # Downloaded local ML models
 models/bert-base-uncased/
+
+# Local test artifacts
+animal_test.txt
+chunk_test.txt
+database_test.txt
+stress_test_files/
